@@ -24,8 +24,8 @@ const donationSchema = new mongoose.Schema({
     beneficiary: { type: mongoose.Schema.Types.ObjectId, ref: 'Beneficiary' },
     donationType: { type: String, enum: ['monetarySupport', 'communityServices' , 'essentialServices' , 'healthCare', 'empowerSkillAndKnowledge'], required: true },
 
-    type: { type: String, enum: ['Books', 'Learning Material', 'Learning Gadgets', 'Mentorship' , 'Medicine' ,
-      'Medications', 'Hospital Assistance', 'Blood', 'Clothes for Underprivileged', 'Food for the Hungry', 'Essentials', 'Volunteering', 'Fundraising'], required: true },
+    type: { type: String, enum: ['Books', 'Learning Material', 'Learning Gadgets', 'Mentorship' , 
+      'Medications', 'Hospital Assistance', 'Blood', 'Clothes for Underprivileged', 'Food for the Hungry', "Quality Education", "Shelter", "Employment", 'Volunteering', 'Fundraising'], required: true },
 
     bloodUnitsDonated: { type: Number, default: 0 }, // Number of blood units donated
     amount: { type: Number, default: null }, // For monetary donations

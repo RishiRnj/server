@@ -128,119 +128,188 @@ async function processImage(file) {
 
 
 // new beneficiary registration
-router.post("/create", attachUserId, upload.array("images", 4), async (req, res) => {
+router.post("/create", attachUserId, upload.array("images", 5), async (req, res) => {
   try {
+    // Check if formData is sent as a string
+    let formData = req.body.formData ? JSON.parse(req.body.formData) : {};
+    console.log("Form Data:", formData);
+    console.log("Received files:", req.files);  // Log to check if the data is properly parsed
 
-    const user_id = req.user_id; // Access userId from the request object
+    const user_id = req.user_id;
     console.log("User ID:", user_id);
 
-    // Fetch user and attach to request
     req.user = await User.findById(user_id);
     if (!req.user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Mark user as a beneficiary
     req.user.isBeneficiary = true;
     await req.user.save();
 
-    const userId = req.user._id; // Define userId
-    console.log('BODY', req.body);
+    const userId = req.user._id;
 
-
-    // Extract form data
-    const { fathersName, moreAboutOccupationNew, applyFor, familyIncome, familyMembersNumber, agreedBenificialTerms, email, username, updateFullName, mobile, age, gender, occupation, origin, address, city, district, state, PIN, userImage, descriptionOfNeed,
-      //Books
+    // Extract the form data
+    const {
+      applyingForWhom, whoIam, fathersName, organisation, familyIncome, familyMembersNumber,
+      // if beneficiary
+      beneficiaryName, benaficiaryFathersName, benaficiaryDOB, benaficiaryAGE, benaficiaryGender, benaficiaryOccupation,
+      beneficiaryAddress, beneficiaryDistrict, beneficiaryPIN, beneficiaryState, selectedOthersState, beneficiaryMobile,
+      applyFor,
+      // Books
       bookType, bookName, bookLanguage, bookOption,
-      //Learning Meterial
+      // Learning Material
       learningMaterialType, learningMaterialQuantity,
       // Learning Gadgets
       gadgetType, gadgetQuantity,
-      //mentor type
-      mentorType,
-      //medication
+      // Mentor type
+      mentorType, mentorArena, numberOfMentee,
+      // Medication
       medicineName,
-      //blood grp
-      bloodGroupNeed, bloodGroupUnitNeed,
-      //cloth
+      // Blood group
+      bloodGroupNeed, bloodGroupUnitNeed, bloodNeedDate,
+      // Cloth
       clothFor, clothUnit,
-      //food
+      // Food
       headCountForFood, anyChildHungry, childCountForFood,
-      //essentials
-      essentials,
-      //fundraising
+      //essentials       
+      qualification,
+      qualificationDetails,
+      expectedSalary,
+      expectedJobRole,
+      expectedJobRoleR,
+      // Fundraising
       fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
-    } = req.body;
+      agreedBenificialTerms, descriptionOfNeed,
+    } = formData;
 
+    
     // Validate required fields
-    if (!fathersName || !moreAboutOccupationNew || !applyFor || !familyIncome || !familyMembersNumber || !agreedBenificialTerms) {
+    if (!applyingForWhom || !applyFor || !familyIncome || !familyMembersNumber || !agreedBenificialTerms) {
       return res.status(400).json({ error: "All required fields must be filled." });
     }
 
-    // Define required image labels
-    const requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate", "Doctor's prescription"];
+    let requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate"];
+
+    // Dynamically adjust the requiredLabels array based on conditions
+    if (applyingForWhom === "For me") {
+      // For user applying for themselves, no extra image is needed
+      requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate"];
+    } else {
+      // If the user is applying for someone else, include "Beneficiary's Image"
+      requiredLabels.push("Beneficiary's Image");
+    }
+
+    if (applyFor === "Medications") {
+      // If the user is applying for medication, we need "Doctor's prescription" as well
+      requiredLabels.push("Doctor's prescription");
+    }
+
+    // Initialize the object to store image URLs
     let imageUrls = {};
 
+    // Handle file uploads if present
     if (req.files && req.files.length > 0) {
       const uploadPromises = req.files.map(async (file, index) => {
-        if (requiredLabels[index]) { // Ensure index exists before using
+        if (requiredLabels[index]) {
+          // Assuming 'processImage' handles the image processing and returns the URL
           const uploadedImage = await processImage(file);
           return { label: requiredLabels[index], url: uploadedImage };
         }
       });
 
       const uploadedResults = await Promise.all(uploadPromises);
+
+      // Store the image URLs in the object, using the label as the key
       uploadedResults.forEach(({ label, url }) => {
         if (label) imageUrls[label] = url;
       });
     }
 
-    // Construct data to update
-    const updatedData = {
-      fathersName, moreAboutOccupationNew, applyFor, descriptionOfNeed, familyIncome, familyMembersNumber,
-      //Books
-      bookType, bookName, bookLanguage, bookOption,
-      //Learning Meterial
-      learningMaterialType, learningMaterialQuantity,
-      // Learning Gadgets
-      gadgetType, gadgetQuantity,
-      //mentor type
-      mentorType,
-      //medication
-      medicineName,
-      //blood grp
-      bloodGroupNeed, bloodGroupUnitNeed,
-      //cloth
-      clothFor, clothUnit,
-      //food
-      headCountForFood, anyChildHungry, childCountForFood,
-      //essentials
-      essentials,
-      //fundraising
-      fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
-      agreedBenificialTerms,
-      email, username, updateFullName, mobile, age, gender, occupation, origin, address, city, district, state, PIN, userImage,
+    // Check if all required images are uploaded
+    const missingImages = requiredLabels.filter(label => !imageUrls[label]);
 
+    if (missingImages.length > 0) {
+      return res.status(400).json({
+        error: `The following required images are missing: ${missingImages.join(", ")}`
+      });
+    }
+
+    // Continue with further logic...
+    // Prepare the updatedData object for beneficiary creation
+    let updatedData = {
+      applyingForWhom, whoIam, fathersName, organisation, familyIncome, familyMembersNumber,
+      applyFor,
+      bookType, bookName, bookLanguage, bookOption,
+      learningMaterialType, learningMaterialQuantity,
+      gadgetType, gadgetQuantity,
+      mentorType, mentorArena, numberOfMentee,
+      medicineName,
+      bloodGroupNeed, bloodGroupUnitNeed, bloodNeedDate,
+      clothFor, clothUnit,
+      headCountForFood, anyChildHungry, childCountForFood,
+      qualification, qualificationDetails, expectedSalary, expectedJobRole, expectedJobRoleR,
+      fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
+      agreedBenificialTerms, descriptionOfNeed,
       aadhaar: imageUrls["Aadhaar Card"] || null,
       voterID: imageUrls["Voter ID Card"] || null,
       incomeCertificate: imageUrls["Income Certificate"] || null,
       prescription: imageUrls["Doctor's prescription"] || null,
-
+      userImage: imageUrls["Beneficiary's Image"] || null,
       user: userId, // Associate with user
-      isBeneficiary: true, // Mark as beneficiary
-      verificationStatus: 'pending', // Default verification status
-      donationStatus: 'Not-Started', // Default donation status
+      isBeneficiary: true,
+      verificationStatus: 'pending',
+      donationStatus: 'Not-Started',
     };
 
-    // Find and update the Beneficiary record, or create a new one if it doesn't exist
-    const updatedUser = await Beneficiary.create(
-      updatedData
-    );
+    // Handling two different scenarios: user applying for themselves or on behalf of someone else
+    if (applyingForWhom === "For me") {
+      updatedData = {
+        ...updatedData, ...{
+          email: req.user.email,
+          updateFullName: req.user.updateFullName || req.user.username || req.user.displayName,
+          mobile: req.user.mobile,
+          dob: req.user.dob,
+          age: req.user.age,
+          gender: req.user.gender,
+          bloodGroup: req.user.bloodGroup,
+          occupation: req.user.occupation,
+          address: req.user.address,
+          origin: req.user.origin,
+          city: req.user.city,
+          PIN: req.user.PIN,
+          district: req.user.district,
+          state: req.user.state,
+          userImage: req.user.userImage,
+        }
+      };
+    } else {
+      updatedData = {
+        ...updatedData, ...{
+          email: req.user.email,
+          updateFullName: beneficiaryName,
+          fathersName: benaficiaryFathersName,
+          dob: benaficiaryDOB,
+          age: benaficiaryAGE,
+          gender: benaficiaryGender,
+          occupation: benaficiaryOccupation,
+          address: beneficiaryAddress,
+          district: beneficiaryDistrict,
+          PIN: beneficiaryPIN,
+          state: beneficiaryState,
+          selectedOthersState,
+          mobile: beneficiaryMobile,
+        }
+      };
+    }
+
+    // Save or create a new beneficiary
+    const updatedUser = await Beneficiary.create(updatedData);
 
     if (!updatedUser) {
       return res.status(500).json({ error: "Failed to create beneficiary record." });
     }
 
+    // Send response after successful creation
     res.status(201).json({ message: "Application submitted successfully", updatedUser });
 
   } catch (error) {
@@ -248,10 +317,309 @@ router.post("/create", attachUserId, upload.array("images", 4), async (req, res)
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+// router.post("/create", attachUserId, upload.array("images", 5), async (req, res) => {
+//   try {
+//     // Check if formData is sent as a string
+//     let formData = req.body.formData ? JSON.parse(req.body.formData) : {};
+//     console.log("Form Data:", formData);
+//     console.log("Received files:", req.files);  // Log to check if the data is properly parsed
+
+//     const user_id = req.user_id;
+//     console.log("User ID:", user_id);
+
+//     req.user = await User.findById(user_id);
+//     if (!req.user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     req.user.isBeneficiary = true;
+//     await req.user.save();
+
+//     const userId = req.user._id;
+
+//     // Extract the form data
+//     const {
+//       applyingForWhom, whoIam, fathersName, organisation, familyIncome, familyMembersNumber,
+//       // if beneficiary
+//       beneficiaryName, benaficiaryFathersName, benaficiaryDOB, benaficiaryAGE, benaficiaryGender, benaficiaryOccupation,
+//       beneficiaryAddress, beneficiaryDistrict, beneficiaryPIN, beneficiaryState, selectedOthersState, beneficiaryMobile,
+//       applyFor,
+//       // Books
+//       bookType, bookName, bookLanguage, bookOption,
+//       // Learning Material
+//       learningMaterialType, learningMaterialQuantity,
+//       // Learning Gadgets
+//       gadgetType, gadgetQuantity,
+//       // Mentor type
+//       mentorType, mentorArena, numberOfMentee,
+//       // Medication
+//       medicineName,
+//       // Blood group
+//       bloodGroupNeed, bloodGroupUnitNeed, bloodNeedDate,
+//       // Cloth
+//       clothFor, clothUnit,
+//       // Food
+//       headCountForFood, anyChildHungry, childCountForFood,
+//       // Essentials
+//       qualification,
+//       qualificationDetails,
+//       // Fundraising
+//       fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
+//       agreedBenificialTerms, descriptionOfNeed,
+//     } = formData;
+
+//     // Validate required fields
+//     if (!applyingForWhom || !applyFor || !familyIncome || !familyMembersNumber || !agreedBenificialTerms) {
+//       return res.status(400).json({ error: "All required fields must be filled." });
+//     }
+
+//     if (applyingForWhom === "For me") {
+//       const requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate", ]
+
+//     } else {
+//       const requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate", "Beneficiary's Image"];
+//     }
+
+//     if (applyFor === "Medications") {
+//       const requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate", "Doctor's prescription", "Beneficiary's Image"];
+
+//     }
+
+
+//     let imageUrls = {};
+
+//     // Handle file uploads if present
+//     if (req.files && req.files.length > 0) {
+//       const uploadPromises = req.files.map(async (file, index) => {
+//         if (requiredLabels[index]) {
+//           const uploadedImage = await processImage(file); // Assuming 'processImage' handles image processing
+//           return { label: requiredLabels[index], url: uploadedImage };
+//         }
+//       });
+
+//       const uploadedResults = await Promise.all(uploadPromises);
+//       uploadedResults.forEach(({ label, url }) => {
+//         if (label) imageUrls[label] = url;
+//       });
+//     }
+
+//     // Prepare the updatedData object for beneficiary creation
+//     let updatedData = {
+//       applyingForWhom, whoIam, fathersName, organisation, familyIncome, familyMembersNumber, 
+//       applyFor,
+//       bookType, bookName, bookLanguage, bookOption,
+//       learningMaterialType, learningMaterialQuantity,
+//       gadgetType, gadgetQuantity,
+//       mentorType, mentorArena, numberOfMentee,
+//       medicineName,
+//       bloodGroupNeed, bloodGroupUnitNeed, bloodNeedDate,
+//       clothFor, clothUnit,
+//       headCountForFood, anyChildHungry, childCountForFood,
+//       qualification, qualificationDetails,
+//       fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
+//       agreedBenificialTerms, descriptionOfNeed,
+//       aadhaar: imageUrls["Aadhaar Card"] || null,
+//       voterID: imageUrls["Voter ID Card"] || null,
+//       incomeCertificate: imageUrls["Income Certificate"] || null,
+//       prescription: imageUrls["Doctor's prescription"] || null,
+//       userImage: imageUrls["Beneficiary's Image"] || null,
+//       user: userId, // Associate with user
+//       isBeneficiary: true,
+//       verificationStatus: 'pending',
+//       donationStatus: 'Not-Started',
+//     };
+
+//     // Handling two different scenarios: user applying for themselves or on behalf of someone else
+//     if (applyingForWhom === "For me") {
+//       updatedData = { ...updatedData, ...{
+//         email: req.user.email,        
+//         updateFullName: req.user.updateFullName || req.user.username || req.user.displayName,
+//         mobile: req.user.mobile, 
+//         dob: req.user.dob, 
+//         age: req.user.age, 
+//         gender: req.user.gender, 
+//         bloodGroup: req.user.bloodGroup,
+//         occupation: req.user.occupation, 
+//         address: req.user.address, 
+//         origin: req.user.origin, 
+//         city: req.user.city, 
+//         PIN: req.user.PIN, 
+//         district: req.user.district,
+//         state: req.user.state, 
+//         userImage: req.user.userImage,
+//       }};
+//     } else {
+//       updatedData = { ...updatedData, ...{
+//         email: req.user.email,
+//         updateFullName: beneficiaryName,
+//         fathersName: benaficiaryFathersName,
+//         dob: benaficiaryDOB,
+//         age: benaficiaryAGE,
+//         gender: benaficiaryGender,
+//         occupation: benaficiaryOccupation,
+//         address: beneficiaryAddress,
+//         district: beneficiaryDistrict,
+//         PIN: beneficiaryPIN,
+//         state: beneficiaryState,
+//         selectedOthersState,
+//         mobile: beneficiaryMobile,
+//       }};
+//     }
+
+//     // Save or create a new beneficiary
+//     const updatedUser = await Beneficiary.create(updatedData);
+
+//     if (!updatedUser) {
+//       return res.status(500).json({ error: "Failed to create beneficiary record." });
+//     }
+
+//     // Send response after successful creation
+//     res.status(201).json({ message: "Application submitted successfully", updatedUser });
+
+//   } catch (error) {
+//     console.error("Error updating user:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+
+
+
+
+// router.post("/create", attachUserId, upload.array("images", 5), async (req, res) => {
+//   try {
+//     // Check if formData is sent as a string
+//     let formData = req.body.formData ? JSON.parse(req.body.formData) : {};
+
+//     console.log("Form Data:", formData);  // Log to check if the data is properly parsed
+//     console.log("Received files:", req.files);  // Log to check if the data is properly parsed
+
+//     const user_id = req.user_id;
+//     console.log("User ID:", user_id);
+
+//     req.user = await User.findById(user_id);
+//     if (!req.user) {
+//       return res.status(404).json({ error: "User not found" });
+//     }
+
+//     req.user.isBeneficiary = true;
+//     await req.user.save();
+
+//     const userId = req.user._id;
+
+//     // Extract the form data
+//     const {
+//       applyingForWhom, whoIam, fathersName, organisation, familyIncome, familyMembersNumber, 
+//       // if beneficiary
+//       beneficiaryName, benaficiaryFathersName, benaficiaryDOB, benaficiaryAGE, benaficiaryGender, beneficiaryAddress, beneficiaryDistrict, beneficiaryPIN, beneficiaryState, selectedOthersState, beneficiaryMobile,
+//       applyFor,
+//       //Books
+//       bookType, bookName, bookLanguage, bookOption,
+//       //Learning Meterial
+//       learningMaterialType, learningMaterialQuantity,
+//       // Learning Gadgets
+//       gadgetType, gadgetQuantity,
+//       //mentor type
+//       mentorType, mentorArena, numberOfMentee,
+//       //medication
+//       medicineName,
+//       //blood grp
+//       bloodGroupNeed, bloodGroupUnitNeed, bloodNeedDate,
+//       //cloth
+//       clothFor, clothUnit,
+//       //food
+//       headCountForFood, anyChildHungry, childCountForFood,
+//       //essentials
+//       qualification,
+//       qualificationDetails,
+//       //fundraising
+//       fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
+//       agreedBenificialTerms, descriptionOfNeed,
+//     } = formData;
+
+//     // Validate required fields
+//     if (!applyingForWhom || !whoIam || !applyFor || !familyIncome || !familyMembersNumber || !agreedBenificialTerms) {
+//       return res.status(400).json({ error: "All required fields must be filled." });
+//     }
+
+//     const requiredLabels = ["Aadhaar Card", "Voter ID Card", "Income Certificate", "Doctor's prescription", "Beneficiary's Image"];
+//     let imageUrls = {};
+
+//     if (req.files && req.files.length > 0) {
+//       const uploadPromises = req.files.map(async (file, index) => {
+//         if (requiredLabels[index]) {
+//           const uploadedImage = await processImage(file);
+//           return { label: requiredLabels[index], url: uploadedImage };
+//         }
+//       });
+
+//       const uploadedResults = await Promise.all(uploadPromises);
+//       uploadedResults.forEach(({ label, url }) => {
+//         if (label) imageUrls[label] = url;
+//       });
+//     }
+
+
+//     const updatedData = {
+//       applyingForWhom, whoIam, fathersName, organisation, familyIncome, familyMembersNumber, 
+//       // if beneficiary
+//       beneficiaryName, benaficiaryFathersName, benaficiaryDOB, benaficiaryAGE, benaficiaryGender, beneficiaryAddress, beneficiaryDistrict, beneficiaryPIN, beneficiaryState, selectedOthersState, beneficiaryMobile,
+//       applyFor,
+//       //Books
+//       bookType, bookName, bookLanguage, bookOption,
+//       //Learning Meterial
+//       learningMaterialType, learningMaterialQuantity,
+//       // Learning Gadgets
+//       gadgetType, gadgetQuantity,
+//       //mentor type
+//       mentorType, mentorArena, numberOfMentee,
+//       //medication
+//       medicineName,
+//       //blood grp
+//       bloodGroupNeed, bloodGroupUnitNeed, bloodNeedDate,
+//       //cloth
+//       clothFor, clothUnit,
+//       //food
+//       headCountForFood, anyChildHungry, childCountForFood,
+//       //essentials
+//       qualification,
+//       qualificationDetails,
+//       //fundraising
+//       fundraising, areParrentsReceiveGovtAssistance, expectedAmountOfMoney, fundRaised,
+//       agreedBenificialTerms, descriptionOfNeed,
+//       aadhaar: imageUrls["Aadhaar Card"] || null,
+//       voterID: imageUrls["Voter ID Card"] || null,
+//       incomeCertificate: imageUrls["Income Certificate"] || null,
+//       prescription: imageUrls["Doctor's prescription"] || null,
+//       beneFiciaryImage: imageUrls["Beneficiary's Image"] || null,
+//       user: userId, // Associate with user
+//       isBeneficiary: true,
+//       verificationStatus: 'pending',
+//       donationStatus: 'Not-Started',
+//     };
+
+//     const updatedUser = await Beneficiary.create(updatedData);
+
+//     if (!updatedUser) {
+//       return res.status(500).json({ error: "Failed to create beneficiary record." });
+//     }
+
+//     res.status(201).json({ message: "Application submitted successfully", updatedUser });
+
+//   } catch (error) {
+//     console.error("Error updating user:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+
+
 
 
 
 // Fetch Pending Beneficiaries:
+
+
 router.get("/pending-beneficiaries", async (req, res) => {
   try {
     const pendingBeneficiaries = await Beneficiary.find({ verificationStatus: "pending" });
@@ -328,39 +696,6 @@ router.put("/addNote/byVerifier/:id", async (req, res) => {
 });
 
 
-
-
-// router.put("/addNote/byVerifier/:id", async (req, res) => {
-//   try {
-//     const { noteByVerifier, expectedAmountOfMoney } = req.body; // 'approved' or 'rejected'
-
-
-//     const beneficiary = await Beneficiary.findById(req.params.id);
-//     if (!beneficiary) {
-//       return res.status(404).json({ error: "Beneficiary not found" });
-//     }
-
-//     if (req.body == noteByVerifier) {
-//       beneficiary.noteByVerifier = noteByVerifier;
-//     await beneficiary.save();
-//     res.status(200).json({ message: `Beneficiary Verifier Note Added: ${noteByVerifier} successfully`, beneficiary });
-
-//     }else if (req.body == expectedAmountOfMoney) {
-//       beneficiary.expectedAmountOfMoney = expectedAmountOfMoney;
-//     await beneficiary.save();
-//     res.status(200).json({ message: `Beneficiary Epx. Amount Addeed of Rs.: ${expectedAmountOfMoney} successfully`, beneficiary });
-//     }
-
-//     // beneficiary.noteByVerifier = noteByVerifier;
-//     // await beneficiary.save();
-
-//     // res.status(200).json({ message: `Beneficiary Verifier Note Added: ${noteByVerifier} successfully`, beneficiary });
-//   } catch (error) {
-//     console.error("Error verifying beneficiary:", error);
-//     res.status(500).json({ error: "Internal Server Error" });
-//   }
-// });
-
 //Fetch Approved Beneficiaries for Display:
 router.get("/approved-beneficiaries", async (req, res) => {
   try {
@@ -410,13 +745,13 @@ router.get("/beneficiaries", async (req, res) => {
 });
 
 
-// get specific 
+
 // Get a specific beneficiary
 router.get("/:id", async (req, res) => {
   console.log('Id', req.params.id);
 
   try {
-    const beneficiary = await Beneficiary.findOne({ user: req.params.id });  // Use findOne instead of find
+    const beneficiary = await Beneficiary.find({ user: req.params.id });  // Use findOne instead of find
     if (!beneficiary) {
       return res.status(404).json({ message: 'Beneficiary not found' });
     }
@@ -426,6 +761,76 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
+
+
+// Get specific beneficiary's profile status in terms of token decoded user iD
+router.get("/profile-status/selected_user/:id", async (req, res) => {
+  
+  try {
+    const urlID = req.params.id;
+    if (!urlID) {
+      return res.status(400).json({ message: 'Unauthorized access' });
+    }
+
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    // Verify token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const id = decoded.id;
+    console.log('Decoded Token for profile status:', decoded);
+        
+
+    // Check if the requesting user has permission to view this status
+    if (decoded.role !== 'user') {
+      return res.status(403).json({ message: 'Unauthorized access' });
+    }
+
+    // Find all beneficiary records for this user
+    const beneficiaryRecords = await Beneficiary.find({ user: id });
+      
+
+    if (!beneficiaryRecords || beneficiaryRecords.length === 0) {
+      return res.status(404).json({ message: 'No beneficiary records found' });
+    }
+
+    // Check donation status across all beneficiary records
+    let overallStatus = 'OK';
+    let inProgressRecords = [];
+
+    beneficiaryRecords.forEach(record => {
+      if (record.donationStatus === 'in-progress') {
+        overallStatus = 'in-progress';
+        inProgressRecords.push({
+          id: record._id,
+          applyingForWhom: record.applyingForWhom,
+          applyFor: record.applyFor,
+          donationStatus: record.donationStatus,
+          createdAt: record.createdAt
+        });
+      }
+    });
+
+    res.status(200).json({ 
+      status: overallStatus,
+      message: overallStatus === 'in-progress' 
+        ? `In your ${inProgressRecords.length} beneficiary application record(s) the Donation status has In-progress. So you cannot submit another application now.` 
+        : 'No donations in progress',
+      inProgressRecords: overallStatus === 'in-progress' ? inProgressRecords : [],
+      totalRecords: beneficiaryRecords.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
+
+
 
 // for admin page
 router.get("/:id/details", async (req, res) => {

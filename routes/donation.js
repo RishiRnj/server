@@ -47,8 +47,8 @@ router.post("/make-donation", async (req, res) => {
     // Validate donation type
     const validDonationTypes = [
       'Books', 'Learning Material', 'Learning Gadgets', 'Mentorship',
-      'Medicine', 'Medications', 'Hospital Assistance', 'Blood',
-      'Clothes for Underprivileged', 'Food for the Hungry', 'Essentials',
+      'Medications', 'Hospital Assistance', 'Blood',
+      'Clothes for Underprivileged', 'Food for the Hungry', "Quality Education", "Shelter", "Employment",
       'Volunteering', 'Fundraising'
     ];
     
@@ -92,43 +92,7 @@ router.post("/make-donation", async (req, res) => {
     const beneficiary = await Beneficiary.findById(beneficiaryId).session(session);
     if (!beneficiary) {
       throw new Error('Beneficiary not found');
-    }
-
-    // Handle Blood Donation
-    // if (type === 'Blood') {
-    //   beneficiary.bloodGroupUnitReceived += bloodUnitsDonated;
-
-    //   if (beneficiary.bloodGroupUnitReceived >= beneficiary.bloodGroupUnitNeed) {
-    //     beneficiary.donationStatus = 'in-progress';
-    //     donation.status = 'in-progress';
-    //   } else {
-    //     donation.status = 'start received';
-    //   }
-
-    //   await beneficiary.save({ session });
-    //   await donation.save({ session });
-
-    // } else if (type === 'Mentorship') {
-    //   beneficiary.donationStatus = 'in-progress';
-    //   donation.status = 'in-progress';
-
-    //   await beneficiary.save({ session });
-    //   await donation.save({ session });
-
-    // } else if (type === 'Fundraising') {
-    //   await updateDonationStatus(beneficiary, donation, amount, session);
-    // } else {
-    //   if (donateVia === "I want to donate the expected amount." || donateVia === "I want to Donate the Partial of the Expected Amount.") {
-    //     await updateDonationStatus(beneficiary, donation, amount, session);
-    //   } else {
-    //     beneficiary.donationStatus = 'in-progress';
-    //     donation.status = 'in-progress';
-    //   }
-
-    //   await beneficiary.save({ session });
-    //   await donation.save({ session });
-
-    // }
+    }    
 
     if (type === 'Blood') {
       beneficiary.bloodGroupUnitReceived += bloodUnitsDonated;
@@ -142,11 +106,12 @@ router.post("/make-donation", async (req, res) => {
     
     } else if (type === 'Mentorship') {
       beneficiary.donationStatus = 'in-progress';
-      donation.status = 'in-progress';
-    
-    } else if (type === 'Fundraising') {
+      donation.status = 'in-progress';    
+    }     
+    else if (type === 'Fundraising') {
       await updateDonationStatus(beneficiary, donation, amount, session);
-    } else {
+    } 
+    else {
       if (donateVia === "I want to donate the expected amount." || donateVia === "I want to Donate the Partial of the Expected Amount.") {
         await updateDonationStatus(beneficiary, donation, amount, session);
       } else {

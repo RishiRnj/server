@@ -108,13 +108,13 @@ router.put('/profile', upload.single('userUpload'), async (req, res) => {
     //06/01/2025 1:41am
     // Check for duplicate mobile number
 
-    //temporarily commented out the mobile number check
-    // if (formData.mobile) {
-    //   const existingUser = await User.findOne({ mobile: formData.mobile });
-    //   if (existingUser && existingUser.email !== email) {
-    //     return res.status(400).json({ message: 'Mobile number is already in use by another user.' });
-    //   }
-    // }    
+    // temporarily commented out the mobile number check
+    if (formData.mobile) {
+      const existingUser = await User.findOne({ mobile: formData.mobile });
+      if (existingUser && existingUser.email !== email) {
+        return res.status(400).json({ message: 'Mobile number is already in use by another user.' });
+      }
+    }    
 
     console.log("req file", req.file);
             
@@ -263,17 +263,97 @@ router.get('/profile', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // res.status(200).json({user  });
     res.status(200).json({
       _id: user._id,
       email: user.email,
       isProfileCompleted: user.isProfileCompleted,
       isBeneficiary: user.isBeneficiary,
+      isVolunteer: user.isVolunteer,
+      isBenefited: user.gotBenefited,
+      user,
     });
   } catch (err) {
     console.error('Error fetching user:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
+// //put user profile for REupdating (joinus)
+router.put('/profile/reUpdate/:id', protect, async (req, res) => {
+  try {    
+    // Fetch user by email
+    const user = await User.findById(req.params.id); // Use the ID from the URL parameter
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.isProfileCompleted = false;
+
+    await user.save(); // Save the updated user
+
+    res.status(200).json({ message: 'Profile ready for Re-updated' });
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+
+});
+
+// POST route for form submission (joinus / new volunteer)
+router.put("/new/volunteer", protect, async (req, res) => {
+  console.log("Request Body:", req.body);
+  try {
+    // Extract token from headers
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id; // Extract user ID from decoded token
+    console.log('Decoded Token:', decoded);
+
+    // Fetch the user based on the ID from the token
+    const user = await User.findOne({ _id: userId });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Mark the user as a volunteer    
+    user.isVolunteer = true;
+    user.isVolunteerProfileCompleted = true;
+    // Update joinUs data with the request body
+    user.joiningFor = req.body.joiningFor;
+    user.qualification = req.body.qualification;
+    user.giveAterJoin = req.body.giveAterJoin;
+    user.fathersName = req.body.fathersName;
+    user.maritalStatus = req.body.maritalStatus;
+    user.spouseName = req.body.spouseName;
+    user.partnerName = req.body.partnerName;
+    user.haveAnyChild = req.body.haveAnyChild;
+    user.numberOfChildren = req.body.numberOfChildren;
+    user.agreedVolunteerTerms = req.body.agreedVolunteerTerms;
+    await user.save();
+
+    
+
+    // Send the response with populated data
+    res.status(200).json({
+      message: "Profile updated successfully!",
+      user
+    });
+
+  } catch (error) {
+    console.error("Error processing request:", error.message);
+    res.status(400).json({ message: error.message || "Invalid request data." });
+  }
+});
+
+
+
 
 // all the registered and unregistered blood Doners 
 router.get('/api-donor', async (req, res) => {

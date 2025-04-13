@@ -27,6 +27,8 @@ const UserSchema = new mongoose.Schema({
   googleId: { type: String, unique: true, sparse: true },
   displayName: String,
   image: String,
+  
+  religion: { type: String,  },
   verificationCode: String,
   isVerified: { type: Boolean, default: false },
   isVolunteer: { type: Boolean, default: false },
@@ -46,7 +48,7 @@ const UserSchema = new mongoose.Schema({
 
   // For users Update Profile
   updateFullName: { type: String },
-  // mobile: { type: String, unique: true, sparse: true },
+  mobile: { type: String, unique: true, sparse: true },
   dob: { type: String },
   age: { type: String },
   hobby: { type: String },
@@ -63,15 +65,19 @@ const UserSchema = new mongoose.Schema({
   PIN: { type: String },
   country: { type: String },
   agreedTerms: { type: Boolean },
-  joiningFor: { type: String },
-  qualification: { type: String },
-  giveAterJoin: { type: String },
-  fathersName: { type: String },
-  maritalStatus: { type: String },
-  spouseName: { type: String },
-  partnerName: { type: String },
-  haveAnyChild: { type: String },
-  numberOfChildren: { type: String },
+
+    joiningFor: { type: String,  },
+    qualification: { type: String, },
+    giveAterJoin: { type: String,  },
+    fathersName: { type: String },
+    maritalStatus: { type: String },
+    spouseName: { type: String },
+    partnerName: { type: String },
+    haveAnyChild: { type: String },
+    numberOfChildren: { type: String },
+    agreedVolunteerTerms: { type: Boolean },
+    isVolunteerProfileCompleted: { type: Boolean, default: false },
+
   userImage: { type: String, default: null }, // New field for file/image
   isAdminVerified: { type: Boolean, default: false },
   role: {
