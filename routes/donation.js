@@ -5,12 +5,13 @@ const { protect } = require('../middlewares/authMiddleware');
 const Donation = require('../models/Donation');
 const Beneficiary = require('../models/Beneficiary');
 const router = express.Router();
-const {User} = require('../models/User');
+const { User } = require('../models/User');
+const { broadcast } = require('../utils/websocketUtils');
 
 
-router.get('/',  (req, res) => {
-    res.json({ message: `Welcome to the Donations!` });
-  });
+router.get('/', (req, res) => {
+  res.json({ message: `Welcome to the Donations!` });
+});
 
 const updateDonationStatus = async (beneficiary, donation, amount, session) => {
   const donationAmount = parseFloat(amount); // Convert to number
@@ -42,7 +43,7 @@ router.post("/make-donation", async (req, res) => {
   try {
     const { donorId, beneficiaryId, type, donationType, amount, description, bloodUnitsDonated, donateVia } = req.body;
     console.log("body", req.body);
-    
+
 
     // Validate donation type
     const validDonationTypes = [
@@ -51,13 +52,13 @@ router.post("/make-donation", async (req, res) => {
       'Clothes for Underprivileged', 'Food for the Hungry', "Quality Education", "Shelter", "Employment",
       'Volunteering', 'Fundraising'
     ];
-    
+
     if (!validDonationTypes.includes(type)) {
       return res.status(400).json({ error: "Invalid donation type" });
     }
 
     // Validate mandatory fields
-    if (!donorId || !beneficiaryId || !type ) {
+    if (!donorId || !beneficiaryId || !type) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -92,25 +93,25 @@ router.post("/make-donation", async (req, res) => {
     const beneficiary = await Beneficiary.findById(beneficiaryId).session(session);
     if (!beneficiary) {
       throw new Error('Beneficiary not found');
-    }    
+    }
 
     if (type === 'Blood') {
       beneficiary.bloodGroupUnitReceived += bloodUnitsDonated;
-    
+
       if (beneficiary.bloodGroupUnitReceived >= beneficiary.bloodGroupUnitNeed) {
         beneficiary.donationStatus = 'in-progress';
         donation.status = 'in-progress';
       } else {
         donation.status = 'start received';
       }
-    
+
     } else if (type === 'Mentorship') {
       beneficiary.donationStatus = 'in-progress';
-      donation.status = 'in-progress';    
-    }     
+      donation.status = 'in-progress';
+    }
     else if (type === 'Fundraising') {
       await updateDonationStatus(beneficiary, donation, amount, session);
-    } 
+    }
     else {
       if (donateVia === "I want to donate the expected amount." || donateVia === "I want to Donate the Partial of the Expected Amount.") {
         await updateDonationStatus(beneficiary, donation, amount, session);
@@ -119,11 +120,11 @@ router.post("/make-donation", async (req, res) => {
         donation.status = 'in-progress';
       }
     }
-    
+
     // Save once at the end
     await beneficiary.save({ session });
     await donation.save({ session });
-    
+
 
     // Commit the transaction
     await session.commitTransaction();
@@ -151,13 +152,13 @@ router.post("/make-donation", async (req, res) => {
 router.get("/donations/:id", async (req, res) => {
   try {
     // Use findOne to get the specific beneficiary
-    console.log("Id Bene",  req.params.id );
-    
+    console.log("Id Bene", req.params.id);
+
 
     const beneficiary = await Beneficiary.findOne({ _id: req.params.id });
 
     console.log("idd of bene f", beneficiary);
-    
+
     if (!beneficiary) {
       return res.status(404).json({ message: "Beneficiary not found" });
     }
@@ -177,68 +178,72 @@ router.get("/donations/:id", async (req, res) => {
 
 
 //marked donation as fulfilled
-  router.put("/donations/:id/fulfill", async (req, res) => {
-    try {
-      const donation = await Donation.findById(req.params.id);
-      if (!donation) {
-        return res.status(404).json({ error: "Donation not found" });
-      }
-  
-      donation.status = 'fulfilled';
-      await donation.save();
-  
-      res.status(200).json({ message: "Donation marked as fulfilled", donation });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Internal Server Error" });
+router.put("/donations/:id/fulfill", async (req, res) => {
+  try {
+    const donation = await Donation.findById(req.params.id);
+    if (!donation) {
+      return res.status(404).json({ error: "Donation not found" });
     }
-  });
+
+    donation.status = 'fulfilled';
+    await donation.save();
+
+    res.status(200).json({ message: "Donation marked as fulfilled", donation });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 
-  
-  // PUT route for registered users (authenticated)
+
+// PUT route for registered users (authenticated)
 router.put("/mark-blood-donor", protect, async (req, res) => {
   try {
-      const donorId = req.user._id;  // Ensure user is authenticated
-      console.log("donorId", donorId);
-      
-      const { donorType, name, email, address, mobile, bloodGroup, age, bp } = req.body;
+    const donorId = req.user._id;  // Ensure user is authenticated
+    console.log("donorId", donorId);
 
-      // If the user has blood pressure or diabetes, set a flag to indicate the condition
+    const { donorType, name, email, realTimeAddress, realTimeLocation, mobile, bloodGroup, age, bp } = req.body;
+
+    // If the user has blood pressure or diabetes, set a flag to indicate the condition
     let alertMessage = '';
     if (bp === "yes") {
       alertMessage = 'Warning: The user has blood pressure or diabetes condition. Please take extra care.';
     }
 
-      const donor = await User.findById(donorId);
-      if (donor) {
-          donor.isBloodDonor = true;
-          donor.contributorType = donorType;
-          donor.donorhaveAnySugarBP = bp;
-          donor.updateFullName = name;
-          donor.mobile = mobile;
-          donor.address = address.address;
-          donor.city = address.city;
-          donor.state = address.state;
-          donor.bloodGroup = bloodGroup;
-          donor.age = age;
-          await donor.save();
+    const donor = await User.findById(donorId);
+    if (donor) {
+      donor.isBloodDonor = true;
+      donor.contributorType = donorType;
+      donor.donorhaveAnySugarBP = bp;
+      donor.updateFullName = name;
+      donor.mobile = mobile;
+      donor.realTimeAddress = realTimeAddress;
+      donor.realTimeLocation = realTimeLocation;
+      donor.bloodGroup = bloodGroup;
+      donor.age = age;
+      await donor.save();
 
-          if (alertMessage) {
-              return res.status(200).json({
-                  message: "Blood donor details updated successfully",
-                  alert: alertMessage, // Include the alert message
-              });
-          }else{
-            return res.status(200).json({ message: "Blood donor details updated successfully" });
-          }
-          
+
+      // // ✅ Broadcast when new blood donor registerd
+      // broadcast(req.wss, donor, "Mark_as_BD");
+
+      if (alertMessage) {
+        return res.status(200).json({
+          message: "Blood donor details updated successfully",
+          alert: alertMessage, // Include the alert message
+        });
       } else {
-          return res.status(404).json({ message: "User not found" });
+        return res.status(200).json({ message: "Blood donor details updated successfully" });
       }
+
+
+    } else {
+      return res.status(404).json({ message: "User not found" });
+    }
   } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Internal Server Error" });
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
@@ -248,10 +253,10 @@ router.put("/mark-blood-donor", protect, async (req, res) => {
 // POST route for non-users (create new blood donor)
 router.post("/create-blood-donor", async (req, res) => {
   try {
-    const { donorType, name, email, address, mobile, bloodGroup, age, bp } = req.body;
+    const { donorType, name, email, address, district, city, state, PIN, realTimeAddress, realTimeLocation, mobile, bloodGroup, age, bp } = req.body;
 
     // Check if the email already exists in the Donation model (i.e., the user is already a donor)
-    const existingDonor = await Donation.findOne({ donorEmail: email });
+    const existingDonor = await Donation.findOne({ donorPhone: mobile });
 
     if (existingDonor && existingDonor.isBloodDonor) {
       // If donor exists, respond with an error message
@@ -276,6 +281,12 @@ router.post("/create-blood-donor", async (req, res) => {
       donorName: name,
       donorEmail: email,
       donorAddress: address,
+      donorCity: city,
+      donorDistrict: district,
+      donorState: state,
+      donorPIN: PIN,
+      realTimeAddress: realTimeAddress,
+      realTimeLocation: realTimeLocation,
       donorPhone: mobile,
       donorBloodGrp: bloodGroup,
       donorAge: age,
@@ -301,69 +312,77 @@ router.post("/create-blood-donor", async (req, res) => {
 
 
 
-  // PUT route for registered users (authenticated)
-  router.put("/mark-as-mentor", protect, async (req, res) => {
-    try {
-        const donorId = req.user._id;  // Ensure user is authenticated
-        console.log("donorId", donorId);
-        
-        const { donorType, name, email, address, mobile, mentorshipSub, provideVia, } = req.body;
-  
-        // If the user has blood pressure or diabetes, set a flag to indicate the condition
-      
-  
-        const donor = await User.findById(donorId);
-        if (donor) {
-            donor.isMentor = true;
-            donor.contributorType = donorType;            
-            donor.updateFullName = name;
-            donor.mobile = mobile;
-            donor.address = address;            
-            donor.mentorshipSub = mentorshipSub,            
-            donor.provideVia = provideVia,
-            await donor.save();
-  
-           
-            return res.status(200).json({ message: "Mentor details updated successfully" });
-           
-            
-        } else {
-            return res.status(404).json({ message: "User not found" });
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Internal Server Error" });
+// PUT route for registered users (authenticated)
+router.put("/mark-as-mentor", protect, async (req, res) => {
+  try {
+    const donorId = req.user._id;  // Ensure user is authenticated
+    console.log("donorId", donorId);
+
+    const { donorType, name, email, realTimeAddress, realTimeLocation, mobile, mentorshipSub, provideVia, } = req.body;
+
+    // If the user has blood pressure or diabetes, set a flag to indicate the condition
+
+
+    const donor = await User.findById(donorId);
+    if (donor) {
+      donor.isMentor = true;
+      donor.contributorType = donorType;
+      donor.updateFullName = name;
+      donor.mobile = mobile;
+
+      donor.realTimeAddress = realTimeAddress;
+      donor.realTimeLocation = realTimeLocation;
+      donor.mentorshipSub = mentorshipSub,
+        donor.provideVia = provideVia,
+        await donor.save();
+
+
+      return res.status(200).json({ message: "Mentor details updated successfully" });
+
+
+    } else {
+      return res.status(404).json({ message: "User not found" });
     }
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 
 
-  // POST route for non-users (create new blood donor)
+// POST route for non-users (create new blood donor)
 router.post("/create-mentor", async (req, res) => {
   try {
-    const { donorType, name, email, address, mobile,  mentorshipSub, provideVia} = req.body;
+    const { donorType, name, email, address, city, district, state, PIN, realTimeAddress, realTimeLocation, mobile, mentorshipSub, provideVia } = req.body;
 
     // Check if the email already exists in the Donation model (i.e., the user is already a donor)
-    const existingDonor = await Donation.findOne({ donorEmail: email });
+    const existingDonor = await Donation.findOne({ donorPhone: mobile });
 
     if (existingDonor && existingDonor.isMentor) {
       // If donor exists, respond with an error message
       return res.status(400).json({
-        message: "This user is already registered as a blood donor. Multiple submissions are not allowed.",
+        message: "This user is already registered as a Mentor. Multiple submissions are not allowed.",
       });
     }
 
-    
+
 
     // Create a new blood donor entry
     const mentor = new Donation({
       isMentor: true,
       type: 'Mentorship',
       donationType: 'empowerSkillAndKnowledge',
-      contributorType: donorType,      
+      contributorType: donorType,
       donorName: name,
       donorEmail: email,
       donorAddress: address,
+      donorCity: city,
+      donorDistrict: district,
+      donorState: state,
+      donorPIN: PIN,
+      realTimeAddress: realTimeAddress,
+      realTimeLocation: realTimeLocation,
       donorPhone: mobile,
       mentorshipSub: mentorshipSub,
       provideVia: provideVia,
@@ -372,23 +391,23 @@ router.post("/create-mentor", async (req, res) => {
     // Save the blood donor record
     await mentor.save();
 
-    
-      return res.status(201).json({ message: "New Mentor created successfully" });
-    
+
+    return res.status(201).json({ message: "New Mentor created successfully" });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
-  
 
 
 
 
 
 
-  
-  
+
+
+
 
 
 

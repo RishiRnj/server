@@ -5,6 +5,44 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const passport = require('passport');
 const bcrypt = require('bcryptjs');
 const {User} = require('../models/User');
+const { Strategy: CustomStrategy } = require('passport-custom');
+
+
+
+passport.use('mobile-login', new CustomStrategy(
+  async (req, done) => {
+    const { mobile } = req.body;
+
+    try {
+      const user = await User.findOne({ mobile });
+
+      if (!user) {
+        return done(null, false, { message: 'No user found with this mobile number.' });
+      }
+
+      // Optional: Check if mobile login is allowed (e.g., not a Google-auth-only account)
+      if (user.authProvider === 'google') {
+        return done(null, false, { message: 'This account uses Google login.' });
+      }
+
+      
+      // Check if the user has verified their email
+      if (!user.isVerified) {
+        return done(null, false, {
+          message: 'Email verification pending.',
+          success: false,
+          verificationRequired: true,
+          email: user.email,
+        });
+      }
+
+      return done(null, user); // Login successful
+    } catch (err) {
+      return done(err);
+    }
+  }
+));
+
 
 // Local Strategy
 passport.use(

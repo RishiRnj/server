@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const {User} = require('../models/User');
 const EmailVerification = require('../models/EmailVerification');
 const Contact = require('../models/Contact');
 const { sendVerificationCode, sendWelcomeMsg, sendContactConfermation, saveInfoEmailAdmin } = require('./EmailConfig');

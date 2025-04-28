@@ -54,7 +54,7 @@ async function processImage(file) {
     //     .toBuffer();
     const optimizedBuffer = await sharp(file.path)    
     .resize(768, 576, { fit: 'cover' })
-    .webp({ quality: 70 })
+    .webp({ quality: 50 })
     .toBuffer({ resolveWithObject: true })
     .then(({ data }) => sharp(data).withMetadata({ orientation: 1 }).toBuffer());
 
@@ -104,7 +104,7 @@ async function processVideo(file) {
         const options = {
             input: inputPath,
             output: outputPath,
-            preset: 'Very Fast 1080p30',
+            preset: 'Very Fast 480p30',
         };
 
         console.time('Video Processing');
@@ -762,6 +762,29 @@ router.get('/', protect, async (req, res) => {
         res.status(500).json({ message: 'Error fetching posts', error: error.message });
     }
 });
+
+
+// GET all posts by a specific user
+router.get("/user/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const posts = await Post.find({ "user": userId }) // or { userId: userId }
+            .sort({ createdAt: -1 });
+
+        res.json(posts);
+    } catch (err) {
+        console.error("Error fetching posts:", err);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
+
+
+
+
+
 
 
 

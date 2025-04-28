@@ -44,12 +44,31 @@ router.post('/login', (req, res, next) => {
     const token = jwt.sign(
       { id: user._id, email: user.email, username : user.username, updateFullName: user.updateFullName , role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: '2d' }
     );
 
     res.status(200).json({ token, message: 'Login successful' });
   })(req, res, next);
 });
+
+router.post('/mobile-login', (req, res, next) => {
+  passport.authenticate('mobile-login', (err, user, info) => {
+    if (err) return next(err);
+
+    if (!user) {
+      return res.status(401).json({ success: false, ...info });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, email: user.email, username : user.username, updateFullName: user.updateFullName , role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '2d' }
+    );
+
+    res.status(200).json({ token, message: 'Mobile login successful' });
+  })(req, res, next);
+});
+
 
 
 // Google login

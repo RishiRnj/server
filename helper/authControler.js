@@ -10,22 +10,26 @@ const crypto = require("crypto");
 
 //SignUp
 const sighUp = async (req, res) => {
-     const { username, email, password } = req.body;
+     const { username, email, password, mobile } = req.body;
   // Validate input
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: 'Username, email, and password are required.' });
+  if (!username || !email || !password || !mobile) {
+    return res.status(400).json({ message: 'All field are required.' });
   }
   // Validate input
   if (!username) {
-    return res.status(400).json({ message: 'Username are required.' });
+    return res.status(400).json({ message: 'Username is required.' });
   }
   // Validate input
   if ( !email) {
-    return res.status(400).json({ message: 'Email are required.' });
+    return res.status(400).json({ message: 'Email is required.' });
   }
   // Validate input
   if ( !password) {
-    return res.status(400).json({ message: 'Password are required.' });
+    return res.status(400).json({ message: 'Password is required.' });
+  }
+  // Validate input
+  if ( !mobile) {
+    return res.status(400).json({ message: 'Mobile  is required.' });
   }
   // Check if email, password, or username is null or undefined
     if (!email || email.trim() === '') {
@@ -46,6 +50,11 @@ const sighUp = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: 'Email is already registered.' });
     }    
+    // Check if the mobile is already registered
+    const existingMobile = await User.findOne({ mobile });
+    if (existingMobile) {
+      return res.status(400).json({ message: 'Mobile is already registered.' });
+    }    
     const verificationCode = Math.floor(1000 + Math.random() * 9000);
 
     // Create a new user
@@ -54,6 +63,7 @@ const sighUp = async (req, res) => {
       email,
       password: await bcrypt.hash(password, 10), // Store hashed password
       authProvider: 'local', // Indicating local authentication
+      mobile,
       verificationCode,
     });
 

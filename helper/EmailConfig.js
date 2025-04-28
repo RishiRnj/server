@@ -2,7 +2,7 @@
  
 const nodemailer = require("nodemailer");
 const { getVerificationTemplate, getWelcomeTemplate, ResetPasswordEmailTemplate, getConfirmationTemplate, getEmailToAdminTemplate} = require("../libs/emailTemplate");
-const Registration = require("../models/User");
+const {User} = require("../models/User");
 const surveyLink = process.env.SURVEY_LINK; // need to update latter
 
 // Configure the transporter
@@ -50,7 +50,7 @@ const sendWelcomeMsg = async (email, surveyLink) => {
     if (!email) {
       throw new Error("Recipient email is not provided");
     }
-    const user = await Registration.findOne({ email });    
+    const user = await User.findOne({ email });    
     //const fullName = user.username || user.displayName;
     const fullName = user ? user.displayName || user.username : "Sanatani";
     surveyLink = process.env.SURVEY_LINK // Update this link later    

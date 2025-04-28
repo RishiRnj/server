@@ -1,15 +1,3 @@
-// const mongoose = require('mongoose');
-
-// const emailVerificationSchema = new mongoose.Schema({
-//   email: { type: String, required: true, unique: true },
-//   code: { type: String, required: true },
-//   isVerified: {type: Boolean, default: false},
-//   expiresAt: { type: Date, required: true },
-//   createdAt: { type: Date, default: Date.now },
-// });
-
-// module.exports = mongoose.model('EmailVerification', emailVerificationSchema);
-
 
 const mongoose = require('mongoose');
 

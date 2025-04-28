@@ -27,28 +27,38 @@ const UserSchema = new mongoose.Schema({
   googleId: { type: String, unique: true, sparse: true },
   displayName: String,
   image: String,
-  
-  religion: { type: String,  },
+
+  religion: { type: String, },
   verificationCode: String,
   isVerified: { type: Boolean, default: false },
   isVolunteer: { type: Boolean, default: false },
   isBeneficiary: { type: Boolean, default: false },
-  gotBenefited:  { type: Number, default: 0 },    
- 
+  gotBenefited: { type: Number, default: 0 },
+
   isProfileCompleted: { type: Boolean, default: false },
+
+  realTimeAddress: { type: String },
+  realTimeLocation: {
+    lat: Number,
+    lon: Number,
+
+  },
+
   isBloodDonor: { type: Boolean, default: false },
   contributorType: { type: String },
   donorhaveAnySugarBP: { type: String },
   isMentor: { type: Boolean, default: false },
-  mentorshipSub: { type: String },            
-  provideVia: { type: String },  
+  mentorshipSub: { type: String },
+  provideVia: { type: String },
   resetPasswordToken: { type: String },
   resetPasswordExpire: { type: Date },
   createdAt: { type: Date, default: Date.now },
 
   // For users Update Profile
   updateFullName: { type: String },
-  mobile: { type: String, unique: true, sparse: true },
+  mobile: { type: String, unique: true, sparse: true,  required: function () {
+    return !this.googleId; // Required for local users
+  }},
   dob: { type: String },
   age: { type: String },
   hobby: { type: String },
@@ -66,17 +76,17 @@ const UserSchema = new mongoose.Schema({
   country: { type: String },
   agreedTerms: { type: Boolean },
 
-    joiningFor: { type: String,  },
-    qualification: { type: String, },
-    giveAterJoin: { type: String,  },
-    fathersName: { type: String },
-    maritalStatus: { type: String },
-    spouseName: { type: String },
-    partnerName: { type: String },
-    haveAnyChild: { type: String },
-    numberOfChildren: { type: String },
-    agreedVolunteerTerms: { type: Boolean },
-    isVolunteerProfileCompleted: { type: Boolean, default: false },
+  joiningFor: { type: String, },
+  qualification: { type: String, },
+  giveAterJoin: { type: String, },
+  fathersName: { type: String },
+  maritalStatus: { type: String },
+  spouseName: { type: String },
+  partnerName: { type: String },
+  haveAnyChild: { type: String },
+  numberOfChildren: { type: String },
+  agreedVolunteerTerms: { type: Boolean },
+  isVolunteerProfileCompleted: { type: Boolean, default: false },
 
   userImage: { type: String, default: null }, // New field for file/image
   isAdminVerified: { type: Boolean, default: false },
