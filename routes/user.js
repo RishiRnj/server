@@ -1,13 +1,13 @@
 //user route
 const express = require('express');
 const router = express.Router();
+const { validationResult } = require('express-validator');
 const {User} = require('../models/User'); // Assuming you have a User model
 const jwt = require('jsonwebtoken'); // For token verification
 const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
 exports.cloudinary = cloudinary;
 const stream = require('stream'); // Add this import for stream
-const { log } = require('console');
 const { protect } = require('../middlewares/authMiddleware');
 const { broadcast } = require('../utils/websocketUtils');
 const fs = require('fs');
@@ -17,6 +17,9 @@ const Beneficiary = require('../models/Beneficiary');
 const Donation = require('../models/Donation');
 const OtherInterest = require('../models/OtherInterest');
 const Post = require('../models/Post')
+const Conference = require('../models/Conference.JS');
+const Survey = require('../models/Survey')
+
 
 
 
@@ -53,7 +56,7 @@ async function processImage(file) {
     const filePath = file.path; // Define the file path at the beginning of the function
     const optimizedBuffer = await sharp(file.path)
         .resize(300, 300, { fit: 'cover' })
-        .webp({ quality: 50 }) // Adjust quality as needed
+        .webp({ quality: 40 }) // Adjust quality as needed
         .toBuffer();
 
     try {
@@ -131,25 +134,7 @@ router.put('/profile', upload.single('userUpload'), async (req, res) => {
 
             let updatedUser;
 
-            if (formData.religion !== "Hinduism") {
-              // Prepare updates for non-Christian user
-              const updates = {
-                ...formData,
-                userImage: imageUrl,
-                isProfileCompleted: false,
-              };
             
-              updatedUser = await User.findOneAndUpdate(
-                { email },
-                { $set: updates },
-                { new: true, runValidators: true }
-              );
-            
-              if (!updatedUser) {
-                return res.status(404).json({ message: 'User not found.' });
-              }
-            
-            } else {
               // Prepare updates for Christian user
               const updates = {
                 ...formData,
@@ -165,27 +150,7 @@ router.put('/profile', upload.single('userUpload'), async (req, res) => {
             
               if (!updatedUser) {
                 return res.status(404).json({ message: 'User not found.' });
-              }
-            }
-            
-            // 🔒 Block non-Christian users from proceeding
-            if (formData.religion !== "Hinduism") {
-              console.log(`👀 Non-Christian interest: ${formData.updateFullName} (${formData.religion})`);
-            
-              await OtherInterest.create({
-                user: updatedUser._id,
-                email: updatedUser.email,
-                religion: formData.religion,
-                fullName: formData.updateFullName,
-                mobile: formData.mobile,
-                timestamp: new Date(),
-              });
-            
-              return res.status(403).json({
-                message: "Profile updated for communicate latter. However, services via this portal are currently limited to the Sanatan Followers.",
-                updatedUser,
-              });
-            }
+              } 
             
             // ✅ Christian user gets full access
             res.status(200).json({ message: 'Profile updated successfully.', updatedUser });
@@ -199,91 +164,91 @@ router.put('/profile', upload.single('userUpload'), async (req, res) => {
 
 // Contact Route
 // GET: Fetch user by toten for showing in profile page
-router.get('/profile/data',  async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
+// router.get('/profile/data',  async (req, res) => {
+//   try {
+//     const token = req.headers.authorization?.split(' ')[1];
+//     if (!token) {
+//       return res.status(401).json({ message: 'No token provided' });
+//     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const email = decoded.email;
-    console.log('Decoded Token:', decoded);
+//     // Verify token
+//     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+//     const email = decoded.email;
+//     console.log('Decoded Token:', decoded);
 
-    // Fetch user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+//     // Fetch user by email
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
 
-    // Define partial fields and full fields
-    const partialFields = [
-      { label: "Name time of Login", value: user.displayName || user.username },
-      { label: "Email", value: user.email },
-      { label: "Login type", value: user.authProvider },
-    ];
+//     // Define partial fields and full fields
+//     const partialFields = [
+//       { label: "Name time of Login", value: user.displayName || user.username },
+//       { label: "Email", value: user.email },
+//       { label: "Login type", value: user.authProvider },
+//     ];
 
-    const fullFields = [
+//     const fullFields = [
       
-      { label: "Name time of Login", value: user.displayName || user.username },
-      { label: "Email", value: user.email },
-      { label: "Login type", value: user.authProvider },
-      { label: "Full Name as update", value: user.updateFullName || "You not Update yet" },
-      { label: "Mobile No.", value: user.mobile || "You not Update yet" },
-      { label: "Date of Birth", value: user.dob || "You not Update yet" },
+//       { label: "Name time of Login", value: user.displayName || user.username },
+//       { label: "Email", value: user.email },
+//       { label: "Login type", value: user.authProvider },
+//       { label: "Full Name as update", value: user.updateFullName || "You not Update yet" },
+//       { label: "Mobile No.", value: user.mobile || "You not Update yet" },
+//       { label: "Date of Birth", value: user.dob || "You not Update yet" },
     
-      // Conditionally include address fields
-      ...(user.origin === "Indain_Hindu"
-        ? [
-            { label: "Local Address", value: user.address || "You not Update yet" },
-            { label: "City or Town", value: user.city || "You not Update yet" },
-            { label: "District", value: user.district || "You not Update yet" },
-            { label: "State", value: user.state || "You not Update yet" },
-            { label: "PIN", value: user.PIN || "You not Update yet" },
-          ]
-        : user.origin === "Gobal_Hindu"
-        ? [
-            { label: "Local Address", value: user.address || "You not Update yet" },
-            { label: "City or Town", value: user.city || "You not Update yet" },
-            { label: "Country", value: user.country || "You not Update yet" },
-          ]
-        : []),
+//       // Conditionally include address fields
+//       ...(user.origin === "Indain_Hindu"
+//         ? [
+//             { label: "Local Address", value: user.address || "You not Update yet" },
+//             { label: "City or Town", value: user.city || "You not Update yet" },
+//             { label: "District", value: user.district || "You not Update yet" },
+//             { label: "State", value: user.state || "You not Update yet" },
+//             { label: "PIN", value: user.PIN || "You not Update yet" },
+//           ]
+//         : user.origin === "Gobal_Hindu"
+//         ? [
+//             { label: "Local Address", value: user.address || "You not Update yet" },
+//             { label: "City or Town", value: user.city || "You not Update yet" },
+//             { label: "Country", value: user.country || "You not Update yet" },
+//           ]
+//         : []),
     
-      { label: "User Status", value: user.origin || "You not Update yet" },
-      { label: "Blood Group", value: user.bloodGroup || "You not Update yet" },
-      { label: "Gender", value: user.gender || "You not Update yet" },
-      { label: "Occupation", value: user.occupation || "You not Update yet" },
+//       { label: "User Status", value: user.origin || "You not Update yet" },
+//       { label: "Blood Group", value: user.bloodGroup || "You not Update yet" },
+//       { label: "Gender", value: user.gender || "You not Update yet" },
+//       { label: "Occupation", value: user.occupation || "You not Update yet" },
     
-      // Conditionally include more details about occupation
-      ...(["Other", "Professional", "GovernmentJob", "Business", "Artist"].includes(user.occupation)
-        ? [
-            {
-              label: "More details about Occupation",
-              value: user.moreAboutOccupation || "You not Update yet",
-            },
-          ]
-        : []),
+//       // Conditionally include more details about occupation
+//       ...(["Other", "Professional", "GovernmentJob", "Business", "Artist"].includes(user.occupation)
+//         ? [
+//             {
+//               label: "More details about Occupation",
+//               value: user.moreAboutOccupation || "You not Update yet",
+//             },
+//           ]
+//         : []),
     
-      { label: "Joined On", value: user.createdAt },
-    ];
+//       { label: "Joined On", value: user.createdAt },
+//     ];
     
     
-    // Respond with structured data
-    res.json({
-      message: 'User data fetched successfully', user,
-      user: {      
-        id: user.id,
-        displayName: user.displayName,
-        userImage: user.userImage, // Image URL  
-        partialFields,
-        fullFields,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
+//     // Respond with structured data
+//     res.json({
+//       message: 'User data fetched successfully', user,
+//       user: {      
+//         id: user.id,
+//         displayName: user.displayName,
+//         userImage: user.userImage, // Image URL  
+//         partialFields,
+//         fullFields,
+//       },
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// });
 
 
 //get selected user profile for checking also isBeneficiary and updating profile
@@ -313,6 +278,10 @@ router.get('/profile', async (req, res) => {
       isBeneficiary: user.isBeneficiary,
       isVolunteer: user.isVolunteer,
       isBenefited: user.gotBenefited,
+      isCampaigner: user.isCampaigner,
+      isCampaignerProfileCompleted: user.isCampaignerProfileCompleted,
+      isCampaignerRequested: user.isCampaignerRequested,
+      religion: user.religion,
       user,
     });
   } catch (err) {
@@ -491,11 +460,10 @@ router.get('/api-volunteers', async (req, res) => {
 
 
 // // get user by id
-router.get('/:id', async (req, res) => {
-  try {
-    
+router.get('/:id', protect, async (req, res) => {
+  try {    
     const userId = req.params.id; // Correct parameter name
-    log('userId:', userId); // Debugging
+    console.log('userId:', req.params.id); // Debugging
     const user = await User.findById(userId); // For MongoDB with Mongoose // Adjust based on your data source
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
@@ -605,56 +573,6 @@ router.get('/follow/status', protect, async (req, res) => {
 });
 
 
-
-
-// router.get('/userSuggestions/followOpt', protect, async (req, res) => {
-//   try {
-//     const { page = 1, limit = 50, search, searchField } = req.query;
-//     const currentUserId = req.user.id;
-
-//     // Create a dynamic query based on searchField and search value
-//     const query = { _id: { $ne: currentUserId } }; // Exclude current user
-
-//     if (search && searchField) {
-//       // Use regex for case-insensitive partial matching
-//       query[searchField] = { $regex: search, $options: 'i' };
-//     }
-
-//     // Fetch users based on query
-//     const users = await User.find(query)
-//       .select('username displayName updateFullName userImage state city followers hobby PIN occupation createdAt postCount isProfileCompleted')
-//       .skip((page - 1) * limit)
-//       .limit(parseInt(limit));
-
-//     // Add `isActive` to each user
-//     const usersWithFollowStatus = users.map((user) => {
-//       const daysSinceFirstPost = (new Date() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24);
-//       const postFrequency = user.postCount / daysSinceFirstPost;
-
-//       return {
-//         ...user.toObject(),
-//         isFollowed: user.followers.includes(currentUserId),
-//         isActive: postFrequency < 1, // Active if posting less than once a day
-//       };
-//     });
-
-//     const total = await User.countDocuments(query);
-
-//     res.status(200).json({
-//       users: usersWithFollowStatus,
-//       total,
-//       page,
-//       totalPages: Math.ceil(total / limit),
-//     });
-//     console.log("Search Query:", search, "Search Field:", searchField);
-
-//   } catch (error) {
-//     res.status(500).json({ message: 'Error fetching users', error: error.message });
-//   }
-// });
-
-
-
 // Follow or Unfollow and send back to user suggestion
 router.get('/userSuggestions/followOpt', protect, async (req, res) => {
   try {
@@ -717,70 +635,7 @@ router.get('/userSuggestions/followOpt', protect, async (req, res) => {
 
 
 
-// router.get('/userSuggestions/followOpt', protect, async (req, res) => {
-//   try {
-//     const { page = 1, limit = 50, search, searchField } = req.query;
-//     const currentUserId = req.user.id;
-
-//     // 1. Prepare user query (excluding self + optional search)
-//     const query = { _id: { $ne: currentUserId } };
-//     if (search && searchField) {
-//       query[searchField] = { $regex: search, $options: 'i' };
-//     }
-
-//     // 2. Fetch paginated users
-//     const users = await User.find(query)
-//       .select('username displayName updateFullName userImage state city followers hobby PIN occupation createdAt isProfileCompleted')
-//       .skip((page - 1) * limit)
-//       .limit(parseInt(limit));
-
-//     // 3. Get post counts from the last 7 days
-//     const sevenDaysAgo = new Date();
-//     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-//     const recentPostCounts = await Post.aggregate([
-//       { $match: { createdAt: { $gte: sevenDaysAgo } } },
-//       { $group: { _id: "$user", count: { $sum: 1 } } }
-//     ]);
-
-//     const recentPostMap = {};
-//     recentPostCounts.forEach(({ _id, count }) => {
-//       recentPostMap[_id.toString()] = count;
-//     });
-
-//     // 4. Map users with isFollowed and isActive
-//     const usersWithFollowStatus = users.map((user) => {
-//       const userId = user._id.toString();
-//       const recentPostCount = recentPostMap[userId] || 0;
-
-//       return {
-//         ...user.toObject(),
-//         isFollowed: user.followers.includes(currentUserId),
-//         isActive: recentPostCount >= 2,
-//         recentPostCount, // Optional: useful if shown in UI or debugging
-//       };
-//     });
-
-//     // 5. Count total users for pagination
-//     const total = await User.countDocuments(query);
-
-//     res.status(200).json({
-//       users: usersWithFollowStatus,
-//       total,
-//       page: Number(page),
-//       totalPages: Math.ceil(total / limit),
-//     });
-
-//     console.log("Search Query:", search, "Search Field:", searchField);
-
-//   } catch (error) {
-//     console.error('Error in /userSuggestions/followOpt:', error);
-//     res.status(500).json({ message: 'Error fetching users', error: error.message });
-//   }
-// });
-
-
-
+//for forum page
 router.post('/:id/follow/send-back-userSuggestions', protect, async (req, res) => {
   try {
       const currentUserId = req.user.id;
@@ -848,51 +703,38 @@ router.post('/:id/follow/send-back-userSuggestions', protect, async (req, res) =
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Get all user in number
-// router.get('/', async (req, res) => {
-//   try {
-//     // Fetch the length of users from the collection
-//     const length = await User.countDocuments(); // countDocuments() to count all documents in the collection
-//     res.json({ message: 'Total Users in Number', length });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Server error', error: err.message });
-//   }
-// });
-
-// Get total users, total beneficiaries, and total beneficiaries with fulfilled donation status in one request
-router.get('/', async (req, res) => {
+//for dashboard statistics
+// Get total users, total beneficiaries, and total beneficiaries with fulfilled donation status, Total blood donor in one request
+router.get('/profile', async (req, res) => {
   try {
     // Fetch total users count
     const totalUsers = await User.countDocuments();
+
+    //total blood doner in user collection
+    const bloodDonorCount = await User.aggregate([
+      {
+        $match: { isBloodDonor: true }
+      },
+      {
+        $count: "totalBloodDonors"
+      }
+    ]);
+    const totalBloodDonors = bloodDonorCount[0]?.totalBloodDonors || 0;
+    
+
+    //total blood doner in donation collection of unregister user
+    const bloodDonorCountUR = await Donation.aggregate([
+      {
+        $match: { isBloodDonor: true }
+      },
+      {
+        $count: "totalBloodDonorsUR"
+      }
+    ]);
+    const totalBloodDonorsUR = bloodDonorCountUR[0]?.totalBloodDonorsUR || 0;   
+
+    const totalBLDonors = (totalBloodDonors || 0) + (totalBloodDonorsUR || 0);
+
 
     // Fetch total beneficiaries count
     const totalBeneficiaries = await Beneficiary.countDocuments();
@@ -900,20 +742,48 @@ router.get('/', async (req, res) => {
     // Fetch total beneficiaries with 'donationStatus' set to "fulfilled"
     const totalSupportReceived = await Beneficiary.countDocuments({ donationStatus: "fulfilled" });
 
+    //total conferences 
+    const totalConferences = await Conference.countDocuments();
+
+    //total open survey respondent in number
+    const result = await Survey.aggregate([
+  {
+    $match: {
+      isAdminCreated: true,
+      status: 'active'
+    }
+  },
+  { $unwind: "$responses" },
+  { $count: "totalResponses" }
+]);
+
+const totalSurveyRespondents = result[0]?.totalResponses || 0;
+console.log("Total Survey Respondents (Admin Created & Active):", totalSurveyRespondents);
+
+
+    
+    
+    
+    
+
     // Send all the results together in a single response
     res.json({
       message: 'Statistics fetched successfully',
       totalUsers,
+      totalBLDonors,
       totalBeneficiaries,
-      totalSupportReceived
+      totalSupportReceived,
+      totalConferences,
+      totalSurveyRespondents
     });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-
-// Make sure this route file is using async handlers
+//for update user profile page
+// Make sure this route file is using async handlers for username checking and suggestions
+// Check if username is available and suggest alternatives if not
 router.post("/check-username", async (req, res) => {
   try {
     const { username } = req.body;
@@ -941,7 +811,6 @@ router.post("/check-username", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-
 
 
 

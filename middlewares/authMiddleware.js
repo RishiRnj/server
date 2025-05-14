@@ -154,12 +154,31 @@ const authenticateAdmin = async (req, res, next) => {
   }
 };
 
+const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = await User.findById(decoded.id).select('-password');
+    } catch (err) {
+      // Invalid token: treat as guest
+      req.user = null;
+    }
+  } else {
+    req.user = null;
+  }
+
+  next();
+};
 
 
 
 
 
 
-module.exports = { protect, authenticateAdmin, protectBlogPost };
+
+module.exports = { protect, authenticateAdmin, protectBlogPost, optionalAuth };
 
 

@@ -42,7 +42,7 @@ router.post('/login', (req, res, next) => {
 
     // Generate JWT
     const token = jwt.sign(
-      { id: user._id, email: user.email, username : user.username, updateFullName: user.updateFullName , role: user.role },
+      { id: user._id, email: user.email, username : user.username, updateFullName: user.updateFullName , role: user.role, isCampaigner: user.isCampaigner },
       process.env.JWT_SECRET,
       { expiresIn: '2d' }
     );
@@ -100,7 +100,7 @@ router.get(
 
       // Generate JWT token
       const token = jwt.sign(
-        { id: user._id, email: user.email, displayName: user.displayName, updateFullName: user.updateFullName , role: user.role },
+        { id: user._id, email: user.email, displayName: user.displayName, updateFullName: user.updateFullName , role: user.role, isCampaigner: user.isCampaigner, religion: user.religion },
         process.env.JWT_SECRET,
         { expiresIn: '1d' }
       );

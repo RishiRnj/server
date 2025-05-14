@@ -1,6 +1,16 @@
 //UserSchema.js
 const mongoose = require('mongoose');
 
+
+const surveyDataSchema = new mongoose.Schema({
+  title: String,
+  orgName: String,
+  noOfQ: Number,
+  totalRespondent: Number,
+  startDate: Date,
+  endDate: Date,
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
   authProvider: { type: String, enum: ['local', 'google'], default: 'local' },
   username: {
@@ -92,12 +102,47 @@ const UserSchema = new mongoose.Schema({
   isAdminVerified: { type: Boolean, default: false },
   role: {
     type: String,
-    enum: ['admin', 'user', 'moderator'], // Define valid roles
+    enum: ['admin', 'user', 'moderator', 'campaigner'], // Define valid roles
     default: 'user', // Default role
   },
+  
   completedQuestions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Users following this user
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Users this user follows
+
+  // campaignerApplication: {
+  //   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: null },
+  //   orgName: String,
+  //   orgMission: String,
+  //   appliedAt: Date,
+  //   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  //   reviewedAt: Date,
+  //   rejectionReason: String
+  // },
+
+  surveyData: [surveyDataSchema],
+  isTrialUsed: { type: Boolean, default: false },
+  isCampaigner: { type: Boolean, default: false },
+  isCampaignerRequested: { type: Boolean, default: false },
+  isCampaignerProfileCompleted: { type: Boolean, default: false },
+  isPaymentDone: { type: Boolean, default: false },
+  campaignPaymentStatus: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+  paymentSlip: { type: String, default: null },
+  campaignerIDImage: { type: String, default: null },
+  campaignAmount: { type: Number, default: 0 },
+  campaignDuration: { type: Number, default: 0 },
+  agreedCampaignerTerms: { type: Boolean, default: false },
+  campaignUseFor: { type: String, default: null },
+  campaignFor: { type: String, enum: ['education', 'health care', 'social service', 'business'], default: null },
+  Mission: String,
+  campaignerIDType: String,
+  campaignerIDNumber: String,
+
+  //if Campaign not for individual then this field will be used
+  orgName: String,
+  orgAddress: String,
+  orgCity: String,
+    
 
 });
 

@@ -80,16 +80,44 @@ async function processImage(file) {
 
 
 
-// get all the confarences
+// // get all the confarences
+// router.get('/', async (req, res) => {
+//   try {
+//     const conferences = await Conference.find(); // Fetch all conferences from the database
+//     res.status(200).json(conferences); // Send the conferences as a JSON response
+//   } catch (error) {
+//     console.error("Error fetching conferences:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
 router.get('/', async (req, res) => {
   try {
-    const conferences = await Conference.find(); // Fetch all conferences from the database
-    res.status(200).json(conferences); // Send the conferences as a JSON response
+    const conferences = await Conference.find();
+    const now = new Date();
+    const updates = [];
+
+    for (let conference of conferences) {
+      const datePart = conference.date.toISOString().split('T')[0];
+      const dateTimeStr = `${datePart}T${conference.time}`;
+      const conferenceDateTime = new Date(dateTimeStr);
+
+      if (conferenceDateTime < now && conference.status !== 'archived') {
+        conference.status = 'archived';
+        conference.updatedAt = new Date(); // Optional
+        updates.push(conference.save());
+      }
+    }
+
+    await Promise.all(updates); // Persist all updates
+    const updatedConferences = await Conference.find(); // Return updated list
+    res.status(200).json(updatedConferences);
   } catch (error) {
     console.error("Error fetching conferences:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
 
 
 

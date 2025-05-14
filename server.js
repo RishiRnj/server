@@ -102,7 +102,7 @@ app.use(limiter);
 // CORS Configuration
 app.use(cors({
   origin: process.env.BASE_URL_FE, // Frontend URL
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true,
   allowedHeaders: ['Authorization', 'Content-Type', 'Cache-Control'],
 }));
@@ -126,7 +126,7 @@ if (process.env.NODE_ENV === 'development') {
 
 // Routes
 app.use('/auth', require("./routes/authRoutes"));
-app.use('/forum', require("./routes/forum"));
+app.use('/api/surveys', require("./routes/forum"));
 app.use('/contactFrm', require("./routes/contact"));
 app.use('/user', require("./routes/user"));
 app.use('/survey', require("./routes/survey"));
@@ -138,6 +138,7 @@ app.use('/api/donate', require("./routes/donation"));
 // app.use('/payment', require("./routes/payment"));
 app.use('/api/blogPost', require("./routes/blogPost"));
 app.use('/api/conference', require("./routes/conference"));
+app.use('/api/campaign', require("./routes/campaigner"));
 
 
 

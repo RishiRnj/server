@@ -3,7 +3,7 @@
 const nodemailer = require("nodemailer");
 const { getVerificationTemplate, getWelcomeTemplate, ResetPasswordEmailTemplate, getConfirmationTemplate, getEmailToAdminTemplate} = require("../libs/emailTemplate");
 const {User} = require("../models/User");
-const surveyLink = process.env.SURVEY_LINK; // need to update latter
+
 
 // Configure the transporter
 const transporter = nodemailer.createTransport({
@@ -53,7 +53,7 @@ const sendWelcomeMsg = async (email, surveyLink) => {
     const user = await User.findOne({ email });    
     //const fullName = user.username || user.displayName;
     const fullName = user ? user.displayName || user.username : "Sanatani";
-    surveyLink = process.env.SURVEY_LINK // Update this link later    
+    surveyLink = `${process.env.BASE_URL_FE}/open-survey` // Update this link later    
     
 
     const mailOptions = {
