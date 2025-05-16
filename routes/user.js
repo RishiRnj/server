@@ -162,7 +162,7 @@ router.put('/profile', upload.single('userUpload'), async (req, res) => {
 });
 
 
-// Contact Route
+// user profile data Route
 // GET: Fetch user by toten for showing in profile page
 // router.get('/profile/data',  async (req, res) => {
 //   try {
@@ -705,7 +705,7 @@ router.post('/:id/follow/send-back-userSuggestions', protect, async (req, res) =
 
 //for dashboard statistics
 // Get total users, total beneficiaries, and total beneficiaries with fulfilled donation status, Total blood donor in one request
-router.get('/profile', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Fetch total users count
     const totalUsers = await User.countDocuments();
