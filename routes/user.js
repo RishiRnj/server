@@ -161,6 +161,42 @@ router.put('/profile', upload.single('userUpload'), async (req, res) => {
   }
 });
 
+router.put('/update-profile', protect, async (req, res) =>{
+  const formData = req.body;
+  const userId = req.user.id;
+    console.log("data ", formData, userId);
+
+    try {    
+    // Fetch user by email
+    const user = await User.findById(req.user.id); // Use the ID from the URL parameter
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    // temporarily commented out the mobile number check
+    if (formData.mobile) {
+      const existingUser = await User.findOne({ mobile: formData.mobile });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Mobile number is already in use by another user.' });
+      }
+    }    
+
+    // Update user profile fields
+    user.username = formData.username;
+    user.mobile = formData.mobile;
+    user.religion = formData.religion;
+
+    await user.save();
+
+    res.status(200).json({ message: 'pertial Profile update successfull', user });
+
+    
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    return res.status(500).json({ message: 'Server error', error: err.message });
+  }
+
+})
+
 
 // user profile data Route
 // GET: Fetch user by toten for showing in profile page
