@@ -139,6 +139,7 @@ app.use('/api/donate', require("./routes/donation"));
 app.use('/api/blogPost', require("./routes/blogPost"));
 app.use('/api/conference', require("./routes/conference"));
 app.use('/api/campaign', require("./routes/campaigner"));
+app.use('/api/test', require("./routes/test"));
 
 
 
