@@ -981,7 +981,7 @@ router.put("/make-fulfill/:id", async (req, res) => {
 router.get("/beneficiaries/notification", async (req, res) => {
   try {
     // Get all non-fulfilled beneficiaries
-    const beneficiaries = await Beneficiary.find({ status: { $ne: "fulfilled" } }).lean();
+    const beneficiaries = await Beneficiary.find({ donationStatus: { $ne: "fulfilled" } }).lean();
     
     if (beneficiaries.length === 0) {
       return res.status(200).json({
