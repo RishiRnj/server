@@ -96,6 +96,8 @@ const UserSchema = new mongoose.Schema({
   haveAnyChild: { type: String },
   numberOfChildren: { type: String },
   agreedVolunteerTerms: { type: Boolean },
+  isOpenSurveyParticipated: { type: Boolean, default: false },
+  isUserSurveyCompleted: { type: Boolean, default: false },
   isVolunteerProfileCompleted: { type: Boolean, default: false },
 
   userImage: { type: String, default: null }, // New field for file/image

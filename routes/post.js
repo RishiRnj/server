@@ -92,8 +92,8 @@ async function processVideo(file) {
 
     const inputPath = file.path;
     const outputPath = path.join(__dirname, `../uploads/processed-${Date.now()}.mp4`);
-    console.log("hit Video out", outputPath);
-    console.log("hit Video in", inputPath);
+    // console.log("hit Video out", outputPath);
+    // console.log("hit Video in", inputPath);
 
     // Ensure upload directory exists
     const uploadDir = path.join(__dirname, '../uploads');
@@ -349,11 +349,11 @@ router.post('/:postId/repost', protect, async (req, res) => {
         const followers = userWithFollowers.followers || []; // Fallback to an empty array
         const followerCount = followers.length; // Calculate follower count
 
-        console.log("Fetched followers:", followerCount);
+        // console.log("Fetched followers:", followerCount);
 
         // Prepare the recipient list (include the reposting user and their followers)       
         const recipients = [...new Set([...followers.map(follower => follower.toString()), userId])];
-        console.log("Final Recipients:", recipients);
+        // console.log("Final Recipients:", recipients);
 
 
 

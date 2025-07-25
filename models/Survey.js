@@ -20,6 +20,13 @@ const surveySchema = new mongoose.Schema({
     questionText: String,
     questionType: { type: String, enum: ['text', 'multiple', 'single'] },
     options: [String],
+    attachment: {
+    filename: String,
+    path: String,
+    mimetype: String,
+    type: String, // 'image' or 'video'
+    default: null
+  },
     _id: { type: mongoose.Schema.Types.ObjectId, auto: true }
   }],
   responses: [{

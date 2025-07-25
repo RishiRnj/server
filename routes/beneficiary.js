@@ -39,7 +39,7 @@ const attachUserId = (req, res, next) => {
     // Verify the token and extract the userId
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user_id = decoded.id; // Attach userId to the request object
-    console.log("id for inmg:", decoded.id);
+    // console.log("id for inmg:", decoded.id);
 
     next();
   } catch (error) {
@@ -132,11 +132,11 @@ router.post("/create", attachUserId, upload.array("images", 5), async (req, res)
   try {
     // Check if formData is sent as a string
     let formData = req.body.formData ? JSON.parse(req.body.formData) : {};
-    console.log("Form Data:", formData);
-    console.log("Received files:", req.files);  // Log to check if the data is properly parsed
+    // console.log("Form Data:", formData);
+    // console.log("Received files:", req.files);  // Log to check if the data is properly parsed
 
     const user_id = req.user_id;
-    console.log("User ID:", user_id);
+    // console.log("User ID:", user_id);
 
     req.user = await User.findById(user_id);
     if (!req.user) {
@@ -317,6 +317,8 @@ router.post("/create", attachUserId, upload.array("images", 5), async (req, res)
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+
+
 // router.post("/create", attachUserId, upload.array("images", 5), async (req, res) => {
 //   try {
 //     // Check if formData is sent as a string
@@ -624,7 +626,7 @@ router.get("/pending-beneficiaries", async (req, res) => {
   try {
     const pendingBeneficiaries = await Beneficiary.find({ verificationStatus: "pending" });
     res.status(200).json({ pendingBeneficiaries });
-    console.log(pendingBeneficiaries);
+    // console.log(pendingBeneficiaries);
 
   } catch (error) {
     console.error("Error fetching pending beneficiaries:", error);
@@ -748,7 +750,7 @@ router.get("/beneficiaries", async (req, res) => {
 
 // Get a specific beneficiary
 router.get("/:id", async (req, res) => {
-  console.log('Id', req.params.id);
+  // console.log('Id', req.params.id);
 
   try {
     const beneficiary = await Beneficiary.find({ user: req.params.id });  // Use findOne instead of find
@@ -782,7 +784,7 @@ router.get("/profile-status/selected_user/:id", async (req, res) => {
     // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const id = decoded.id;
-    console.log('Decoded Token for profile status:', decoded);
+    // console.log('Decoded Token for profile status:', decoded);
         
 
     // Check if the requesting user has permission to view this status
@@ -834,7 +836,7 @@ router.get("/profile-status/selected_user/:id", async (req, res) => {
 
 // for admin page
 router.get("/:id/details", async (req, res) => {
-  console.log('Id', req.params.id);
+  // console.log('Id', req.params.id);
 
   try {
     // Use findOne instead of find since you're looking for a single document
@@ -845,7 +847,7 @@ router.get("/:id/details", async (req, res) => {
     }
 
     res.json({ beneficiary });  // Return the beneficiary in an object, not an array
-    console.log(beneficiary);
+    // console.log(beneficiary);
 
   } catch (error) {
     console.error(error);
@@ -855,7 +857,7 @@ router.get("/:id/details", async (req, res) => {
 
 //mark status fulfiled when support is satteled
 router.put("/make-fulfill/:id", async (req, res) => {
-  console.log('Id for update', req.params.id);
+  // console.log('Id for update', req.params.id);
   try {
     // Step 1: Find the Beneficiary by ID
     const beneficiary = await Beneficiary.findOne({ _id: req.params.id });
@@ -901,9 +903,9 @@ router.put("/make-fulfill/:id", async (req, res) => {
     await user.save();
 
     // Log the results for debugging purposes
-    console.log("Beneficiary updated:", beneficiary);
-    console.log("Donations updated:", donations);
-    console.log("User updated:", user);
+    // console.log("Beneficiary updated:", beneficiary);
+    // console.log("Donations updated:", donations);
+    // console.log("User updated:", user);
 
     // Step 7: Respond to the client with success
     res.status(200).json({ message: "Support marked as fulfilled and user updated" });
@@ -936,6 +938,84 @@ router.put("/make-fulfill/:id", async (req, res) => {
 //     res.status(500).json({ message: 'Server error', error: err.message });
 //   }
 // });
+
+
+
+
+// Get global notification data about beneficiaries
+// router.get("/beneficiaries/notification", async (req, res) => {
+//   try {
+//     // Get all non-fulfilled beneficiaries
+//     const beneficiaries = await Beneficiary.find({ status: { $ne: "fulfilled" } }).lean();
+    
+//     if (beneficiaries.length === 0) {
+//       return res.status(200).json({
+//         totalApplications: 0,
+//         message: "Currently no applications for help",
+//         showNotification: false
+//       });
+//     }
+
+//     // Select a random beneficiary
+//     const randomIndex = Math.floor(Math.random() * beneficiaries.length);
+//     const randomBeneficiary = beneficiaries[randomIndex];
+
+//     // Construct the response
+//     const notificationData = {
+//       totalApplications: beneficiaries.length,
+//       beneficiaryName: randomBeneficiary.updateFullName,
+//       beneficiaryRequest: randomBeneficiary.applyFor ,
+//       beneficiaryAmtNeed: randomBeneficiary.expectedAmountOfMoney || "Not specified",
+//       beneficiaryId: randomBeneficiary._id,
+//       showNotification: true
+//     };
+
+//     res.status(200).json(notificationData);
+//   } catch (error) {
+//     console.error("Error fetching beneficiary notification data:", error);
+//     res.status(500).json({ error: "Internal Server Error" });
+//   }
+// });
+
+
+router.get("/beneficiaries/notification", async (req, res) => {
+  try {
+    // Get all non-fulfilled beneficiaries
+    const beneficiaries = await Beneficiary.find({ status: { $ne: "fulfilled" } }).lean();
+    
+    if (beneficiaries.length === 0) {
+      return res.status(200).json({
+        showNotification: false,
+        message: "Currently no applications for help",
+        data: {
+          totalApplications: 0
+        }
+      });
+    }
+
+    // Select a random beneficiary
+    const randomIndex = Math.floor(Math.random() * beneficiaries.length);
+    const randomBeneficiary = beneficiaries[randomIndex];
+
+    // Construct the response
+    const notificationData = {
+      showNotification: true,
+      message: `${beneficiaries.length} people are seeking help`,
+      data: {
+        totalApplications: beneficiaries.length,
+        beneficiaryName: randomBeneficiary.updateFullName,
+        beneficiaryRequest: randomBeneficiary.applyFor,
+        beneficiaryAmtNeed: randomBeneficiary.expectedAmountOfMoney || "Nil",
+        beneficiaryId: randomBeneficiary._id
+      }
+    };
+
+    res.status(200).json(notificationData);
+  } catch (error) {
+    console.error("Error fetching beneficiary notification data:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 
 

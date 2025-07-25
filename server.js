@@ -51,7 +51,7 @@ wss.on('connection', async (ws, req) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log('Decoded token in app:', decoded);
       const user = await User.findById(decoded.id);
-      console.log("token", user,);
+      // console.log("token", user,);
       if (!user) {
           ws.close(1008, 'Invalid token');
           return;

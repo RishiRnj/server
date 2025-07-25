@@ -298,7 +298,7 @@ router.get('/profile', async (req, res) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const email = decoded.email;
-    console.log('Decoded Token:', decoded);
+    // console.log('Decoded Token:', decoded);
 
     // Fetch user by email
     const user = await User.findOne({ email });
@@ -360,7 +360,7 @@ router.put("/new/volunteer", protect, async (req, res) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const userId = decoded.id; // Extract user ID from decoded token
-    console.log('Decoded Token:', decoded);
+    // console.log('Decoded Token:', decoded);
 
     // Fetch the user based on the ID from the token
     const user = await User.findOne({ _id: userId });

@@ -6,6 +6,8 @@ const Survey = require('../models/Survey');
 
 const multer = require("multer");
 const sharp = require("sharp");
+const Handbrake = require('handbrake-js');
+
 const cloudinary = require("cloudinary").v2;
 exports.cloudinary = cloudinary;
 const fs = require("fs");
@@ -99,6 +101,51 @@ async function processImage(file) {
 }
 
 
+// Helper function to compress and upload an Video
+async function processVideo(file) {
+
+    const inputPath = file.path;
+    const outputPath = path.join(__dirname, `../uploads/processed-${Date.now()}.mp4`);
+    // console.log("hit Video out", outputPath);
+    // console.log("hit Video in", inputPath);
+
+    // Ensure upload directory exists
+    const uploadDir = path.join(__dirname, '../uploads');
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+    try {
+        // HandBrake options
+        const options = {
+            input: inputPath,
+            output: outputPath,
+            preset: 'Very Fast 480p30',
+        };
+
+        console.time('Video Processing');
+        await new Promise((resolve, reject) => {
+            Handbrake.spawn(options)
+                .on('progress', progress => console.log(`Progress: ${progress.percentComplete}%`))
+                .on('error', reject)
+                .on('end', resolve);
+        });
+        console.timeEnd('Video Processing');
+
+        console.time('Cloudinary Upload');
+        const result = await cloudinary.uploader.upload(outputPath, { resource_type: 'video', folder: 'Campaigner-Uploads_vid' }); // Specify the folder where the file will be stored
+        
+        console.timeEnd('Cloudinary Upload');
+
+        return result.secure_url;
+    } catch (err) {
+        console.error('Error processing video:', err);
+        throw err;
+    } finally {
+        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+    }
+}
+
+
 
 
 
@@ -113,41 +160,106 @@ router.get('/', (req, res) => {
 
 
 // Create Survey (with Trial Option):
-router.post('/create-survey', protect, upload.single('paymentSlip'), async (req, res) => {
+// router.post('/create-survey', protect, upload.single('paymentSlip'), async (req, res) => {
+//   try {
+//     const { title, description, questions, durationDays, budget, isTrial } = req.body;
+//     console.log('Request body:', req.body);
+//     console.log('File:', req.file);
+
+//     const userId = req.user._id;
+
+//     const user = await User.findById(userId);
+//     if (!user.isCampaigner && user.role !== 'admin') {
+//       return res.status(403).json({ message: 'Only campaigners can create surveys' });
+//     }
+
+//     // Check if trying to use trial when already used
+//     if (isTrial && user.isTrialUsed) {
+//       return res.status(400).json({ message: 'Trial already used' });
+//     }
+
+//     // // Calculate end date
+//     // const startDate = new Date();
+//     // const endDate = new Date();
+//     // endDate.setDate(startDate.getDate() + Number(durationDays));
+
+//     // Calculate end date
+//     const startDate = new Date();
+//     const endDate = new Date();
+
+//     const duration = Number(durationDays);
+//     if (user.role !== 'admin' && isNaN(duration)) {
+//       return res.status(400).json({ message: 'Invalid or missing durationDays' });
+//     }
+//     endDate.setDate(startDate.getDate() + (isNaN(duration) ? 0 : duration));
+
+
+//     // Parse JSON string from FormData
+//     let parsedQuestions;
+//     try {
+//       parsedQuestions = JSON.parse(questions);
+//     } catch (parseErr) {
+//       return res.status(400).json({ message: 'Invalid questions format' });
+//     }
+
+
+//     const survey = new Survey({
+//       title,
+//       description,
+//       createdBy: userId,
+//       orgName: user?.orgName || 'Admin Survey',
+//       budget: user.role !== 'admin' ? Number(budget) : '',
+//       durationDays: user.role !== 'admin' ? Number(durationDays) : '',
+//       startDate,
+//       endDate,
+//       isTrial: isTrial === 'true',
+//       isAdminCreated: user.role === 'admin' ? true : false,
+//       status: user.role === 'admin' ? 'active' : 'draft',
+//       questions: parsedQuestions
+//     });
+
+//     await survey.save();
+
+//     // Handle payment slip if uploaded
+//     if (req.file) {
+//       const processedSlip = await processImage(req.file); // Assume this returns a URL or buffer
+//       user.paymentSlip = processedSlip;
+//     }
+
+//     // Mark trial as used
+//     if (isTrial === 'true') {
+//       user.isTrialUsed = true;
+//     }
+
+//     await user.save();
+
+//     res.status(201).json(survey);
+//   } catch (err) {
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// });
+
+
+
+router.post('/create-survey', protect, upload.any(), async (req, res) => {
   try {
     const { title, description, questions, durationDays, budget, isTrial } = req.body;
-    console.log('Request body:', req.body);
-    console.log('File:', req.file);
+    // console.log('Request body:', req.body);
+    // console.log('Files:', req.files);
 
     const userId = req.user._id;
-
     const user = await User.findById(userId);
+    
     if (!user.isCampaigner && user.role !== 'admin') {
       return res.status(403).json({ message: 'Only campaigners can create surveys' });
     }
 
     // Check if trying to use trial when already used
-    if (isTrial && user.isTrialUsed) {
+    if (isTrial === 'true' && user.isTrialUsed) {
       return res.status(400).json({ message: 'Trial already used' });
     }
 
-    // // Calculate end date
-    // const startDate = new Date();
-    // const endDate = new Date();
-    // endDate.setDate(startDate.getDate() + Number(durationDays));
-
-    // Calculate end date
-    const startDate = new Date();
-    const endDate = new Date();
-
-    const duration = Number(durationDays);
-    if (user.role !== 'admin' && isNaN(duration)) {
-      return res.status(400).json({ message: 'Invalid or missing durationDays' });
-    }
-    endDate.setDate(startDate.getDate() + (isNaN(duration) ? 0 : duration));
-
-
-    // Parse JSON string from FormData
+    // Parse questions
     let parsedQuestions;
     try {
       parsedQuestions = JSON.parse(questions);
@@ -155,31 +267,67 @@ router.post('/create-survey', protect, upload.single('paymentSlip'), async (req,
       return res.status(400).json({ message: 'Invalid questions format' });
     }
 
+    // Process question attachments
+    const questionAttachments = {};
+    req.files.forEach(file => {
+      if (file.fieldname.startsWith('question_') && file.fieldname.endsWith('_attachment')) {
+        const qIndex = file.fieldname.match(/question_(\d+)_attachment/)[1];
+        questionAttachments[qIndex] = file;
+      }
+    });
 
+    // Process each question with potential attachment
+    const processedQuestions = await Promise.all(parsedQuestions.map(async (q, qIndex) => {
+      const attachmentFile = questionAttachments[qIndex];
+      const question = {
+        questionText: q.questionText,
+        questionType: q.questionType,
+        options: q.options
+      };
+
+      if (attachmentFile) {
+        const attachmentType = req.body[`question_${qIndex}_attachmentType`];
+        if (attachmentType === 'image') {
+          question.attachment = await processImage(attachmentFile);
+        } else if (attachmentType === 'video') {
+          question.attachment = await processVideo(attachmentFile);
+        }
+      }
+
+      return question;
+    }));
+
+    // Calculate dates
+    const startDate = new Date();
+    const endDate = new Date();
+    const duration = Number(durationDays);
+    endDate.setDate(startDate.getDate() + (isNaN(duration) ? 0 : duration));
+
+    // Create survey
     const survey = new Survey({
       title,
       description,
       createdBy: userId,
       orgName: user?.orgName || 'Admin Survey',
-      budget: user.role !== 'admin' ? Number(budget) : '',
-      durationDays: user.role !== 'admin' ? Number(durationDays) : '',
+      budget: user.role !== 'admin' ? Number(budget) : 0,
+      durationDays: user.role !== 'admin' ? Number(durationDays) : 0,
       startDate,
       endDate,
       isTrial: isTrial === 'true',
-      isAdminCreated: user.role === 'admin' ? true : false,
+      isAdminCreated: user.role === 'admin',
       status: user.role === 'admin' ? 'active' : 'draft',
-      questions: parsedQuestions
+      questions: processedQuestions
     });
 
     await survey.save();
 
     // Handle payment slip if uploaded
-    if (req.file) {
-      const processedSlip = await processImage(req.file); // Assume this returns a URL or buffer
-      user.paymentSlip = processedSlip;
+    const paymentSlipFile = req.files.find(f => f.fieldname === 'paymentSlip');
+    if (paymentSlipFile) {
+      user.paymentSlip = await processImage(paymentSlipFile);
     }
 
-    // Mark trial as used
+    // Mark trial as used if applicable
     if (isTrial === 'true') {
       user.isTrialUsed = true;
     }
@@ -188,41 +336,108 @@ router.post('/create-survey', protect, upload.single('paymentSlip'), async (req,
 
     res.status(201).json(survey);
   } catch (err) {
+    console.error('Survey creation error:', err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
 // EDIT SURVEY:
-router.put('/:id', protect, async (req, res) => {
-  try {
-    const survey = await Survey.findById(req.params.id);
+// router.put('/:id', protect, async (req, res) => {
+//   try {
+//     const survey = await Survey.findById(req.params.id);
 
-    if (!survey) {
+//     if (!survey) {
+//       return res.status(404).json({ message: 'Survey not found' });
+//     }
+
+//     // Check ownership
+//     if (survey.createdBy.toString() !== req.user._id.toString()) {
+//       return res.status(403).json({ message: 'Not authorized to edit this survey' });
+//     }
+
+//     // Prevent editing certain fields if published
+//     if (survey.status !== 'draft') {
+//       const allowedUpdates = ['questions', 'description'];
+//       Object.keys(req.body).forEach(key => {
+//         if (!allowedUpdates.includes(key)) {
+//           delete req.body[key];
+//         }
+//       });
+//     }
+
+//     // Update survey
+//     Object.assign(survey, req.body);
+//     await survey.save();
+
+//     res.status(200).json(survey);
+//   } catch (err) {
+//     res.status(500).json({ message: 'Server error', error: err.message });
+//   }
+// });
+
+// EDIT SURVEY with attachments:
+router.put('/:id', protect, upload.any(), async (req, res) => {
+  try {
+    const surveyData = JSON.parse(req.body.survey);
+    const files = req.files || [];
+    
+    // Get current survey
+    const currentSurvey = await Survey.findById(req.params.id);
+    if (!currentSurvey) {
       return res.status(404).json({ message: 'Survey not found' });
     }
 
-    // Check ownership
-    if (survey.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: 'Not authorized to edit this survey' });
-    }
+    // Process attachments
+    const questionAttachments = {};
+    files.forEach(file => {
+      const match = file.fieldname.match(/question_(\d+)_attachment/);
+      if (match) questionAttachments[match[1]] = file;
+    });
 
-    // Prevent editing certain fields if published
-    if (survey.status !== 'draft') {
-      const allowedUpdates = ['questions', 'description'];
-      Object.keys(req.body).forEach(key => {
-        if (!allowedUpdates.includes(key)) {
-          delete req.body[key];
+    // Update questions with proper attachment handling
+    const updatedQuestions = await Promise.all(
+      surveyData.questions.map(async (q, qIndex) => {
+        const currentQuestion = currentSurvey.questions[qIndex] || {};
+        
+        // Handle attachment changes
+        if (q.removeAttachment) {
+          // Explicit removal
+          q.attachment = null;
+        } else if (questionAttachments[qIndex]) {
+          // New attachment
+          const file = questionAttachments[qIndex];
+          q.attachment = file.mimetype.startsWith('image') 
+            ? await processImage(file) 
+            : await processVideo(file);
+        } else if (currentQuestion.attachment && !q.hasNewAttachment) {
+          // Preserve existing attachment
+          q.attachment = currentQuestion.attachment;
         }
-      });
-    }
+        
+        return q;
+      })
+    );
 
     // Update survey
-    Object.assign(survey, req.body);
-    await survey.save();
+    const updatedSurvey = await Survey.findByIdAndUpdate(
+      req.params.id,
+      { 
+        ...surveyData,
+        questions: updatedQuestions,
+        status: surveyData.status || currentSurvey.status,
+        startDate: surveyData.startDate || currentSurvey.startDate,
+        endDate: surveyData.endDate || currentSurvey.endDate
+      },
+      { new: true }
+    );
 
-    res.status(200).json(survey);
+    res.json(updatedSurvey);
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
+    console.error('Survey update error:', err);
+    res.status(500).json({ 
+      message: 'Failed to update survey',
+      error: err.message 
+    });
   }
 });
 
@@ -544,10 +759,46 @@ router.get('/adminCreated', async (req, res) => {
   }
 });
 
+
+
+
+
+
+// backend routes for get  notification for pending survey for user
+router.get('/pending', optionalAuth, async (req, res) => {
+  try {
+    const activeSurveys = await Survey.find({ 
+      status: 'active', 
+      isAdminCreated: true 
+    }).lean();
+    
+    if (req.user) {
+      const pendingSurveys = activeSurveys.filter(survey => {
+        return !survey.responses.some(response => {
+          // Proper ID comparison
+          return response.respondent?.toString() === req.user._id.toString();
+        });
+      });
+      return res.json(pendingSurveys);
+    } else {
+      res.json(activeSurveys);
+    }
+  } catch (err) {
+    console.error('Error fetching pending surveys:', err);
+    res.status(500).json({ message: 'Error fetching pending surveys' });
+  }
+});
+
+
+
+
+
+
+
 // GET public survey which created by campaigner
 router.get('/by-user/:id', async (req, res) => {
   try {
-    console.log('survey ID:', req.params.id);
+    
 
 
     const surveys = await Survey.findOne({
@@ -627,7 +878,7 @@ router.get('/active-surveys', authenticateAdmin, async (req, res) => {
 // GET survey results - Final improved version
 router.get('/:id/results', protect, async (req, res) => {
   try {
-    console.log('userId:', req.user._id);
+    
 
     // Fetch survey with minimal population
     const survey = await Survey.findById(req.params.id)
@@ -710,69 +961,6 @@ router.get('/:id/results', protect, async (req, res) => {
 
 
 // // Export survey results to CSV
-// router.get('/:id/export', protect, async (req, res) => {
-//   try {
-//     const survey = await Survey.findById(req.params.id)
-//       .populate('responses.respondent', 'name email');
-
-//     if (!survey) {
-//       return res.status(404).json({ message: 'Survey not found' });
-//     }
-
-//     // Authorization check
-//     const isOwner = survey.createdBy.toString() === req.user._id.toString();
-//     if (req.user.role !== 'admin' && !isOwner) {
-//       return res.status(403).json({ message: 'Not authorized' });
-//     }
-
-//     // Prepare CSV data
-//     const headers = [
-//       'Response ID',
-//       'Respondent',
-//       ...survey.questions.map((q, i) => `Q${i+1}: ${q.questionText}`),
-//       'Response Date'
-//     ];
-
-//     const rows = survey.responses.map(response => {
-//       const respondent = response.respondentName 
-//     ? response.respondentName
-//     : response.anonymousId 
-//       ? `Anonymous (${response.anonymousId})`
-//       : 'Unknown';
-
-//       return [
-//         response._id,
-//         respondent,
-//         ...survey.questions.map(q => {
-//           const answer = response.answers[q._id];
-//           if (Array.isArray(answer)) {
-//             return answer.filter(a => a).join('; ');
-//           }
-//           return answer || '';
-//         }),
-//         new Date(response.respondedAt).toISOString()
-//       ];
-//     });
-
-//     // Convert to CSV
-//     const csvContent = [
-//       headers.join(','),
-//       ...rows.map(row => row.map(field => 
-//         `"${String(field).replace(/"/g, '""')}"`).join(','))
-//     ].join('\n');
-
-//     res.setHeader('Content-Type', 'text/csv');
-//     res.setHeader('Content-Disposition', 
-//       `attachment; filename=survey_${survey._id}_results_${new Date().toISOString().split('T')[0]}.csv`);
-//     res.status(200).send(csvContent);
-//   } catch (err) {
-//     res.status(500).json({ 
-//       message: 'Server error', 
-//       error: err.message 
-//     });
-//   }
-// });
-
 router.get('/:id/export', protect, async (req, res) => {
   try {
     const survey = await Survey.findById(req.params.id)

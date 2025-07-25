@@ -206,7 +206,7 @@ router.put("/update-conference-status/:id", authenticateAdmin, async (req, res) 
 router.get("/:conferenceId/participants", async (req, res) => {
   try {
     const { conferenceId } = req.params;
-    console.log("confarence id", conferenceId);
+    // console.log("confarence id", conferenceId);
 
 
     const conference = await Conference.findById(conferenceId);
@@ -237,7 +237,7 @@ router.post("/add-participant/:conferenceId", upload.single("userUpload"), async
 
     // Check if the file is an image or video
     if (req.file) {
-      console.log("req file", req.file);
+      // console.log("req file", req.file);
       if (req.file.mimetype.startsWith("image/")) {
         userImage = await processImage(req.file);
         console.log("Processed Image URL:", userImage);
@@ -245,7 +245,7 @@ router.post("/add-participant/:conferenceId", upload.single("userUpload"), async
     } else if (req.body.userImage) {
       // If no file uploaded, check if there's a userImage in the request body (URL or base64 string)
       userImage = req.body.userImage;  // This could be a URL or base64 string
-      console.log("Received Image URL or base64:", userImage);
+      // console.log("Received Image URL or base64:", userImage);
     }
 
     const conference = await Conference.findById(conferenceId);

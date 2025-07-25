@@ -108,7 +108,7 @@ router.get('/questions/stats', async (req, res) => {
 router.post('/answers', async (req, res) => {
   const { userId, questionId, answer } = req.body;
 
-  console.log('Received body:', req.body);
+  // console.log('Received body:', req.body);
 
   if (!userId || !questionId || !answer) {
     return res.status(400).json({ message: 'Invalid request parameters' });
@@ -117,7 +117,7 @@ router.post('/answers', async (req, res) => {
   try {
     const user = await User.findById(userId);
     if (!user) {
-      console.log(`User not found for ID: ${userId}`);
+      // console.log(`User not found for ID: ${userId}`);
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -153,7 +153,7 @@ router.get('/user/progress', async (req, res) => {
   const { userId } = req.query;
 
  
-  console.log('Fetching progress for userId:', userId);
+  // console.log('Fetching progress for userId:', userId);
 
   if (!userId) {
     console.error('Missing userId');
@@ -172,7 +172,7 @@ router.get('/user/progress', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });    }
 
    
-    console.log('Completed Questions:', user.completedQuestions);
+    // console.log('Completed Questions:', user.completedQuestions);
 
     res.status(200).json(user.completedQuestions.map(q => q._id));
   } catch (err) {
@@ -186,7 +186,7 @@ router.get('/user/progress', async (req, res) => {
 router.get('/user/answers/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
-    console.log('Fetching for get answers for userId:', userId);
+    // console.log('Fetching for get answers for userId:', userId);
     
 
     // Fetch user's profile

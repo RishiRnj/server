@@ -21,9 +21,9 @@ passport.use('mobile-login', new CustomStrategy(
       }
 
       // Optional: Check if mobile login is allowed (e.g., not a Google-auth-only account)
-      if (user.authProvider === 'google') {
-        return done(null, false, { message: 'This account uses Google login.' });
-      }
+      // if (user.authProvider === 'google') {
+      //   return done(null, false, { message: 'This account uses Google login.' });
+      // }
 
       
       // Check if the user has verified their email

@@ -42,7 +42,7 @@ router.post("/make-donation", async (req, res) => {
 
   try {
     const { donorId, beneficiaryId, type, donationType, amount, description, bloodUnitsDonated, donateVia } = req.body;
-    console.log("body", req.body);
+    // console.log("body", req.body);
 
 
     // Validate donation type
@@ -82,8 +82,8 @@ router.post("/make-donation", async (req, res) => {
       type,
       donationType,
       donateVia,
-      amount: type === 'Fundraising' ? amount : null,
-      description: type !== 'Fundraising' ? description : null,
+      amount: amount , 
+      description:  description ,
       bloodUnitsDonated: type === 'Blood' ? bloodUnitsDonated : null,
       status: 'pending' // Default status
     });
@@ -152,12 +152,12 @@ router.post("/make-donation", async (req, res) => {
 router.get("/donations/:id", async (req, res) => {
   try {
     // Use findOne to get the specific beneficiary
-    console.log("Id Bene", req.params.id);
+    // console.log("Id Bene", req.params.id);
 
 
     const beneficiary = await Beneficiary.findOne({ _id: req.params.id });
 
-    console.log("idd of bene f", beneficiary);
+    // console.log("idd of bene f", beneficiary);
 
     if (!beneficiary) {
       return res.status(404).json({ message: "Beneficiary not found" });
@@ -201,7 +201,7 @@ router.put("/donations/:id/fulfill", async (req, res) => {
 router.put("/mark-blood-donor", protect, async (req, res) => {
   try {
     const donorId = req.user._id;  // Ensure user is authenticated
-    console.log("donorId", donorId);
+    // console.log("donorId", donorId);
 
     const { donorType, name, email, realTimeAddress, realTimeLocation, mobile, bloodGroup, age, bp } = req.body;
 
@@ -316,7 +316,7 @@ router.post("/create-blood-donor", async (req, res) => {
 router.put("/mark-as-mentor", protect, async (req, res) => {
   try {
     const donorId = req.user._id;  // Ensure user is authenticated
-    console.log("donorId", donorId);
+    // console.log("donorId", donorId);
 
     const { donorType, name, email, realTimeAddress, realTimeLocation, mobile, mentorshipSub, provideVia, } = req.body;
 
